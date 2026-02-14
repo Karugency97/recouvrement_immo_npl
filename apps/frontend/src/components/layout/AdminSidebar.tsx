@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 import {
   LayoutDashboard,
   FolderKanban,
   CalendarCheck,
   Users,
   Receipt,
-  Scale,
   Search,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -55,12 +55,10 @@ export function AdminSidebar({ userName, userCompany }: AdminSidebarProps) {
     <aside className="fixed left-0 top-0 z-40 h-screen w-[280px] border-r border-slate-800 bg-slate-950 text-slate-100 flex flex-col">
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-800">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600">
-          <Scale className="h-5 w-5 text-slate-100" />
-        </div>
+        <Image src="/logo.png" alt="ImmoJuris" width={40} height={40} className="rounded-lg" />
         <div>
           <h1 className="text-lg font-semibold tracking-tight text-slate-100">
-            LegalRecover
+            ImmoJuris
           </h1>
           <p className="text-xs text-indigo-400 font-medium">Administration</p>
         </div>

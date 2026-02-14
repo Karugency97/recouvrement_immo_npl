@@ -53,7 +53,7 @@ export default function DesignSystemPage() {
           Design System
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          IMMO NPL — LegalRecover — Référence visuelle des composants
+          ImmoJuris — by Cabinet d&apos;avocat NPL — Référence visuelle des composants
         </p>
       </header>
 
@@ -91,7 +91,7 @@ export default function DesignSystemPage() {
           <div className="space-y-6 rounded-xl border bg-card p-6">
             <div>
               <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Display — Playfair Display</span>
-              <p className="font-display text-4xl font-bold tracking-tight">LegalRecover — Recouvrement Immobilier</p>
+              <p className="font-display text-4xl font-bold tracking-tight">ImmoJuris — Recouvrement Immobilier</p>
             </div>
             <Separator />
             <div className="space-y-3">

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Scale } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,11 +48,11 @@ export default function LoginPage() {
     <div className="animate-fade-in">
       <div className="flex flex-col items-center mb-8">
         <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-slate-900 mb-4">
-          <Scale className="h-7 w-7 text-slate-100" />
+          <Image src="/logo.png" alt="ImmoJuris" width={32} height={32} />
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight">LegalRecover</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">ImmoJuris</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Gestion de recouvrement immobilier
+          by Cabinet d&apos;avocat NPL
         </p>
       </div>
 

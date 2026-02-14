@@ -16,7 +16,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "LegalRecover - Gestion de Recouvrement Immobilier",
+  title: "ImmoJuris - Gestion de Recouvrement Immobilier",
   description:
     "Application de gestion de dossiers juridiques pour le recouvrement de creances immobilieres",
 };
