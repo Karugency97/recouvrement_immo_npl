@@ -16,6 +16,9 @@ export async function getMessages(token: string, dossierId: string) {
         "expediteur_id.first_name",
         "expediteur_id.last_name",
         "expediteur_id.role.name",
+        "piece_jointe.id",
+        "piece_jointe.filename_download",
+        "piece_jointe.type",
       ],
       filter: { dossier_id: { _eq: dossierId } },
       sort: ["date_created"],
@@ -23,7 +26,7 @@ export async function getMessages(token: string, dossierId: string) {
   );
 }
 
-export async function sendMessage(token: string, data: { dossier_id: string; contenu: string; expediteur_id: string }) {
+export async function sendMessage(token: string, data: { dossier_id: string; contenu: string; expediteur_id: string; piece_jointe?: string }) {
   const client = getClient(token);
   return client.request(createItem("messages", data));
 }

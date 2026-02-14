@@ -135,11 +135,14 @@ export async function sendMessageAction(_prev: unknown, formData: FormData) {
   const result = messageSchema.safeParse(raw);
   if (!result.success) return { error: "Message invalide" };
 
+  const pieceJointe = formData.get("piece_jointe") as string | null;
+
   try {
     await sendMessage(token, {
       dossier_id: result.data.dossier_id,
       contenu: result.data.contenu,
       expediteur_id: user.id,
+      ...(pieceJointe ? { piece_jointe: pieceJointe } : {}),
     });
     revalidatePath(`/dossiers/${result.data.dossier_id}`);
     revalidatePath("/messagerie");

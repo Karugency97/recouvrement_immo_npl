@@ -117,6 +117,7 @@ export default async function DossierDetailPage({
   // Map messages for MessageThread
   const mappedMessages = messages.map((msg) => {
     const expediteur = msg.expediteur_id as Record<string, unknown> | null;
+    const pj = msg.piece_jointe as Record<string, unknown> | null;
     return {
       id: msg.id as string,
       contenu: (msg.contenu as string) || "",
@@ -128,6 +129,11 @@ export default async function DossierDetailPage({
       expediteur_role: ((expediteur?.role as Record<string, unknown>)?.name as string)?.toLowerCase().includes("syndic")
         ? ("syndic" as const)
         : ("avocat" as const),
+      piece_jointe: pj ? {
+        id: pj.id as string,
+        filename_download: pj.filename_download as string,
+        type: pj.type as string,
+      } : null,
     };
   });
 

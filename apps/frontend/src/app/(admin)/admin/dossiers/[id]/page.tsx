@@ -118,6 +118,7 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
     const isAvocat =
       expRole?.toLowerCase().includes("avocat") ||
       expRole?.toLowerCase().includes("admin");
+    const pj = m.piece_jointe as Record<string, unknown> | null;
     return {
       id: (m.id as string) || "",
       contenu: (m.contenu as string) || "",
@@ -127,6 +128,11 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
         ? `${(exp.first_name as string) || ""} ${(exp.last_name as string) || ""}`.trim()
         : "Inconnu",
       expediteur_role: (isAvocat ? "avocat" : "syndic") as "avocat" | "syndic",
+      piece_jointe: pj ? {
+        id: pj.id as string,
+        filename_download: pj.filename_download as string,
+        type: pj.type as string,
+      } : null,
     };
   });
 

@@ -12,6 +12,7 @@ interface Message {
   expediteur_id: string;
   expediteur_nom: string;
   expediteur_role: "avocat" | "syndic";
+  piece_jointe?: { id: string; filename_download: string; type: string } | null;
 }
 
 interface MessageSenderProps {
@@ -30,29 +31,57 @@ export function MessageSender({
   senderRole = "syndic",
 }: MessageSenderProps) {
   const [localMessages, setLocalMessages] = useState(messages);
+  const [sending, setSending] = useState(false);
 
-  const handleSend = async (content: string) => {
+  const handleSend = async (content: string, file?: File) => {
     const tempId = `temp-${Date.now()}`;
     const optimisticMsg: Message = {
       id: tempId,
-      contenu: content,
+      contenu: content || (file ? `[Fichier: ${file.name}]` : ""),
       date_created: new Date().toISOString(),
       expediteur_id: currentUserId,
       expediteur_nom: currentUserName,
       expediteur_role: senderRole,
+      piece_jointe: file ? { id: "", filename_download: file.name, type: file.type } : null,
     };
 
     setLocalMessages((prev) => [...prev, optimisticMsg]);
+    setSending(true);
 
-    const formData = new FormData();
-    formData.append("contenu", content);
-    formData.append("dossier_id", dossierId);
+    try {
+      // Upload file first if present
+      let fileId: string | null = null;
+      if (file) {
+        const uploadForm = new FormData();
+        uploadForm.append("file", file);
+        const uploadRes = await fetch("/api/upload", { method: "POST", body: uploadForm });
+        if (!uploadRes.ok) {
+          throw new Error("Erreur lors de l'upload du fichier");
+        }
+        const uploadData = await uploadRes.json();
+        fileId = uploadData.id;
+      }
 
-    const result = await sendMessageAction(null, formData);
+      const formData = new FormData();
+      formData.append("contenu", content || (file ? `[Fichier: ${file.name}]` : ""));
+      formData.append("dossier_id", dossierId);
+      if (fileId) {
+        formData.append("piece_jointe", fileId);
+      }
 
-    if (result.error) {
+      const result = await sendMessageAction(null, formData);
+
+      if (result.error) {
+        setLocalMessages((prev) => prev.filter((m) => m.id !== tempId));
+        toast.error(result.error);
+      } else {
+        toast.success("Message envoye");
+      }
+    } catch (err) {
       setLocalMessages((prev) => prev.filter((m) => m.id !== tempId));
-      toast.error(result.error);
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'envoi");
+    } finally {
+      setSending(false);
     }
   };
 
@@ -61,6 +90,7 @@ export function MessageSender({
       messages={localMessages}
       currentUserId={currentUserId}
       onSend={handleSend}
+      sending={sending}
     />
   );
 }
