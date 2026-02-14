@@ -41,12 +41,13 @@ async function api(method, path, body) {
   }
 
   if (!res.ok) {
-    // If collection already exists, skip silently
-    if (res.status === 400 && JSON.stringify(data).includes('already exists')) {
+    // If collection/field/relation already exists, skip silently
+    const errStr = JSON.stringify(data);
+    if (res.status === 400 && (errStr.includes('already exists') || errStr.includes('already has an associated'))) {
       console.log(`  (already exists, skipping)`);
       return data;
     }
-    throw new Error(`${method} ${path} -> ${res.status}: ${JSON.stringify(data)}`);
+    throw new Error(`${method} ${path} -> ${res.status}: ${errStr}`);
   }
   return data;
 }

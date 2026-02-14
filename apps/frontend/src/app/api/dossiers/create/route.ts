@@ -44,12 +44,20 @@ export async function POST(request: Request) {
     const syndicId = (syndic as Record<string, unknown>).id as string;
 
     // 1. Create debiteur
+    const debiteurNom = formData.get("debiteur_nom") as string;
+    const lotDescription = formData.get("lot_description") as string || "";
+    const rawType = formData.get("debiteur_type") as string;
+    const typeMap: Record<string, string> = {
+      personne_physique: "particulier",
+      personne_morale: "societe",
+    };
     const debiteur = await createDebiteur(token, {
-      type: formData.get("debiteur_type") as string,
-      nom: formData.get("debiteur_nom") as string,
+      type: typeMap[rawType] || rawType,
+      nom: debiteurNom,
       adresse: formData.get("debiteur_adresse") as string,
       email: formData.get("debiteur_email") as string || undefined,
       telephone: formData.get("debiteur_telephone") as string || undefined,
+      lot_description: lotDescription || "Non renseigne",
     });
     const debiteurId = (debiteur as Record<string, unknown>).id as string;
 
@@ -74,31 +82,35 @@ export async function POST(request: Request) {
     }
 
     // 3. Create dossier
+    const montant = parseFloat(formData.get("montant") as string) || 0;
+    const coproNomDisplay = formData.get("copropriete_nom") as string || "";
     const dossier = await createDossier(token, {
+      titre: `Impayes ${debiteurNom} - ${coproNomDisplay}`.trim(),
       syndic_id: syndicId,
       debiteur_id: debiteurId,
       copropriete_id: coproprieteId,
-      lot_description: formData.get("lot_description") as string || undefined,
       statut: "nouveau",
       phase: "amiable",
-      montant_total: parseFloat(formData.get("montant") as string) || 0,
-      observations: formData.get("observations") as string || undefined,
+      priorite: "normale",
+      date_ouverture: new Date().toISOString().split("T")[0],
+      montant_initial: montant,
+      description: formData.get("observations") as string || undefined,
     });
     const dossierId = (dossier as Record<string, unknown>).id as string;
 
     // 4. Create creance
-    const montant = parseFloat(formData.get("montant") as string);
     if (montant > 0) {
+      const periodeDebut = formData.get("periode_debut") as string || undefined;
+      const periodeFin = formData.get("periode_fin") as string || undefined;
+      const libelle = [periodeDebut, periodeFin].filter(Boolean).join(" - ") || "Charges de copropriete";
       await createCreance(token, {
         dossier_id: dossierId,
         type: "charges_copropriete",
+        libelle,
         montant,
-        periode: [
-          formData.get("periode_debut") as string,
-          formData.get("periode_fin") as string,
-        ]
-          .filter(Boolean)
-          .join(" - ") || undefined,
+        periode_debut: periodeDebut || undefined,
+        periode_fin: periodeFin || undefined,
+        statut: "du",
       });
     }
 
@@ -116,7 +128,7 @@ export async function POST(request: Request) {
         const fileId = await uploadFile(token, file, file.name);
         await createDocument(token, {
           dossier_id: dossierId,
-          nom: file.name,
+          titre: file.name,
           type: docTypeMap[field],
           fichier: fileId,
           uploaded_by: userId,
