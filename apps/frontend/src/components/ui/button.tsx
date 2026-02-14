@@ -19,12 +19,23 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        success:
+          "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700",
+        warning:
+          "bg-amber-500 text-white shadow-sm hover:bg-amber-600",
+        info:
+          "bg-blue-600 text-white shadow-sm hover:bg-blue-700",
+        indigo:
+          "bg-indigo-600 text-white shadow-sm hover:bg-indigo-700",
       },
       size: {
         default: "h-9 px-4 py-2",
         sm: "h-8 rounded-md px-3 text-xs",
         lg: "h-10 rounded-md px-8",
+        xl: "h-11 rounded-md px-10 text-base",
         icon: "h-9 w-9",
+        "icon-sm": "h-8 w-8",
+        "icon-lg": "h-10 w-10",
       },
     },
     defaultVariants: {
