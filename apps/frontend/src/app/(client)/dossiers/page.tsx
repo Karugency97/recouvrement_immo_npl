@@ -8,103 +8,31 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/format-currency";
 import { formatDate } from "@/lib/utils/format-date";
+import { requireAuth, getAuthToken, getUserRole } from "@/lib/dal";
+import { getDossiers } from "@/lib/api/dossiers";
+import { getSyndicByUserId } from "@/lib/api/syndics";
 
 /* -------------------------------------------------------------------------- */
-/*  Placeholder data (will be replaced by Directus API calls)                 */
+/*  Page component (Server Component — async)                                 */
 /* -------------------------------------------------------------------------- */
 
-const dossiers = [
-  {
-    id: "1",
-    reference: "LR-2026-042",
-    debiteur: "SCI Les Tilleuls",
-    type_debiteur: "personne_morale",
-    copropriete: "Residence Parc Monceau",
-    statut: "mise_en_demeure",
-    montant_total: 8450.0,
-    montant_recouvre: 0,
-    date_created: "2026-02-10T10:30:00",
-    lot: "Lot 14 — T3, 2e etage",
-  },
-  {
-    id: "2",
-    reference: "LR-2026-041",
-    debiteur: "M. Jean Dupont",
-    type_debiteur: "personne_physique",
-    copropriete: "Residence Les Lilas",
-    statut: "en_cours",
-    montant_total: 3200.0,
-    montant_recouvre: 800.0,
-    date_created: "2026-02-08T14:15:00",
-    lot: "Lot 7 — T2, RDC",
-  },
-  {
-    id: "3",
-    reference: "LR-2026-039",
-    debiteur: "Mme Sophie Martin",
-    type_debiteur: "personne_physique",
-    copropriete: "Residence Bellevue",
-    statut: "assignation",
-    montant_total: 12750.0,
-    montant_recouvre: 0,
-    date_created: "2026-02-05T09:00:00",
-    lot: "Lot 22 — T4, 5e etage",
-  },
-  {
-    id: "4",
-    reference: "LR-2026-038",
-    debiteur: "SCI Horizon",
-    type_debiteur: "personne_morale",
-    copropriete: "Les Jardins du Parc",
-    statut: "nouveau",
-    montant_total: 5800.0,
-    montant_recouvre: 0,
-    date_created: "2026-02-03T16:45:00",
-    lot: "Lot 3 — Studio, 1er etage",
-  },
-  {
-    id: "5",
-    reference: "LR-2026-035",
-    debiteur: "M. Pierre Lefebvre",
-    type_debiteur: "personne_physique",
-    copropriete: "Domaine des Roses",
-    statut: "audience",
-    montant_total: 15200.0,
-    montant_recouvre: 2000.0,
-    date_created: "2026-01-28T11:20:00",
-    lot: "Lot 9 — T3, 3e etage",
-  },
-  {
-    id: "6",
-    reference: "LR-2026-030",
-    debiteur: "M. Ahmed Benali",
-    type_debiteur: "personne_physique",
-    copropriete: "Residence Victor Hugo",
-    statut: "jugement",
-    montant_total: 9100.0,
-    montant_recouvre: 4550.0,
-    date_created: "2026-01-20T08:30:00",
-    lot: "Lot 18 — T2, 4e etage",
-  },
-  {
-    id: "7",
-    reference: "LR-2026-027",
-    debiteur: "Mme Claire Roux",
-    type_debiteur: "personne_physique",
-    copropriete: "Residence Parc Monceau",
-    statut: "paye",
-    montant_total: 4300.0,
-    montant_recouvre: 4300.0,
-    date_created: "2026-01-15T13:00:00",
-    lot: "Lot 6 — T2, 1er etage",
-  },
-];
+export default async function DossiersPage() {
+  const user = await requireAuth();
+  const token = (await getAuthToken())!;
+  const role = getUserRole(user);
 
-/* -------------------------------------------------------------------------- */
-/*  Page component                                                            */
-/* -------------------------------------------------------------------------- */
+  // Get syndic record if user is syndic
+  const syndic = role === "syndic" ? await getSyndicByUserId(token, user.id) : null;
+  const syndicId = (syndic as Record<string, unknown> | null)?.id as string | undefined;
 
-export default function DossiersPage() {
+  // Fetch dossiers (filtered by syndic for client users)
+  const dossiersRaw = await (syndicId
+    ? getDossiers(token, { syndic_id: { _eq: syndicId } })
+    : getDossiers(token)
+  ).catch(() => []);
+
+  const dossiers = dossiersRaw as Record<string, unknown>[];
+
   return (
     <div className="animate-fade-in space-y-6">
       {/* Page heading + action */}
@@ -162,15 +90,21 @@ export default function DossiersPage() {
       ) : (
         <div className="space-y-3">
           {dossiers.map((dossier) => {
+            const debiteur = dossier.debiteur_id as Record<string, unknown> | null;
+            const copro = dossier.copropriete_id as Record<string, unknown> | null;
+            const debiteurLabel = debiteur
+              ? `${debiteur.prenom || ""} ${debiteur.nom || ""}`.trim()
+              : "—";
+            const coproLabel = (copro?.nom as string) || "—";
+            const montantTotal = (dossier.montant_total as number) || 0;
+            const montantRecouvre = (dossier.montant_recouvre as number) || 0;
             const pourcentage =
-              dossier.montant_total > 0
-                ? Math.round(
-                    (dossier.montant_recouvre / dossier.montant_total) * 100
-                  )
+              montantTotal > 0
+                ? Math.round((montantRecouvre / montantTotal) * 100)
                 : 0;
 
             return (
-              <Link key={dossier.id} href={`/dossiers/${dossier.id}`}>
+              <Link key={dossier.id as string} href={`/dossiers/${dossier.id}`}>
                 <Card className="card-hover group cursor-pointer">
                   <CardContent className="p-5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -178,15 +112,16 @@ export default function DossiersPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-semibold text-foreground">
-                            {dossier.reference}
+                            {(dossier.reference as string) || "—"}
                           </span>
-                          <StatusBadge status={dossier.statut} />
+                          <StatusBadge status={(dossier.statut as string) || "nouveau"} />
                         </div>
                         <p className="text-sm text-foreground mt-1">
-                          {dossier.debiteur}
+                          {debiteurLabel}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {dossier.copropriete} — {dossier.lot}
+                          {coproLabel}
+                          {(dossier.lot_description as string) ? ` — ${dossier.lot_description}` : ""}
                         </p>
                       </div>
 
@@ -194,7 +129,7 @@ export default function DossiersPage() {
                       <div className="flex items-center gap-4 sm:text-right shrink-0">
                         <div>
                           <p className="text-sm font-semibold text-foreground">
-                            {formatCurrency(dossier.montant_total)}
+                            {formatCurrency(montantTotal)}
                           </p>
                           <p
                             className={cn(
@@ -205,12 +140,14 @@ export default function DossiersPage() {
                             )}
                           >
                             {pourcentage > 0
-                              ? `${formatCurrency(dossier.montant_recouvre)} recouvre (${pourcentage}%)`
+                              ? `${formatCurrency(montantRecouvre)} recouvre (${pourcentage}%)`
                               : "Aucun recouvrement"}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            Cree le {formatDate(dossier.date_created)}
-                          </p>
+                          {(dossier.date_created as string) ? (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Cree le {formatDate(dossier.date_created as string)}
+                            </p>
+                          ) : null}
                         </div>
                         <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>

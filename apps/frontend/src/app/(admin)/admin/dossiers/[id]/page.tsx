@@ -1,9 +1,6 @@
-"use client";
-
 import Link from "next/link";
 import {
   ArrowLeft,
-  Pencil,
   Clock,
   FileText,
   MessageSquare,
@@ -17,230 +14,126 @@ import {
   Mail,
   Scale,
   Download,
-  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Timeline } from "@/components/timeline/Timeline";
-import { MessageThread } from "@/components/messaging/MessageThread";
+import { MessageSender } from "@/components/messaging/MessageSender";
+import { AddHeureDialog } from "@/components/admin/AddHeureDialog";
+import { AddNoteDialog } from "@/components/admin/AddNoteDialog";
+import { DossierStatusSelect } from "@/components/admin/DossierStatusSelect";
+import { requireAuth, getAuthToken } from "@/lib/dal";
+import { getDossierById } from "@/lib/api/dossiers";
+import { getCreances } from "@/lib/api/creances";
+import { getDocuments } from "@/lib/api/documents";
+import { getEvenements } from "@/lib/api/evenements";
+import { getMessages } from "@/lib/api/messages";
+import { getHeures } from "@/lib/api/heures";
+import { getNotes } from "@/lib/api/notes";
+import { formatCurrency } from "@/lib/utils/format-currency";
+import { formatDate } from "@/lib/utils/format-date";
+import { CREANCE_TYPE_LABELS, DOCUMENT_TYPE_LABELS } from "@/lib/utils/constants";
 
-/* ------------------------------------------------------------------ */
-/*  Placeholder data                                                   */
-/* ------------------------------------------------------------------ */
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
 
-const dossier = {
-  id: "d1",
-  reference: "LR-2026-047",
-  statut: "mise_en_demeure",
-  phase: "pre_contentieux",
-  copropriete: "Residence Les Oliviers",
-  adresse: "12 avenue des Oliviers, 75016 Paris",
-  syndic: "Foncia Paris Ouest",
-  syndic_email: "contact@foncia-parisouest.fr",
-  syndic_telephone: "01 42 88 12 34",
-  debiteur_nom: "Martin Dupont",
-  debiteur_type: "Personne physique",
-  debiteur_adresse: "12 avenue des Oliviers, Apt 4B, 75016 Paris",
-  debiteur_email: "m.dupont@email.fr",
-  debiteur_telephone: "06 12 34 56 78",
-  montant_principal: "14 200,00 \u20AC",
-  montant_frais: "2 450,00 \u20AC",
-  montant_interets: "1 800,00 \u20AC",
-  montant_total: "18 450,00 \u20AC",
-  date_creation: "10/02/2026",
-  date_mise_en_demeure: "25/01/2026",
-  avocat: "Me Claire Fontaine",
-};
+export default async function AdminDossierDetailPage({ params }: PageProps) {
+  const user = await requireAuth();
+  const token = (await getAuthToken())!;
+  const { id } = await params;
 
-const timelineEvents = [
-  {
-    id: "e1",
-    titre: "Creation du dossier",
-    description: "Dossier cree par Foncia Paris Ouest",
-    date_evenement: "2026-01-10T09:30:00",
-    type: "creation",
-    state: "completed" as const,
-  },
-  {
-    id: "e2",
-    titre: "Envoi de la mise en demeure",
-    description: "LRAR envoyee au debiteur",
-    date_evenement: "2026-01-25T14:00:00",
-    type: "mise_en_demeure",
-    state: "completed" as const,
-  },
-  {
-    id: "e3",
-    titre: "Relance telephonique",
-    description: "Tentative de contact - sans reponse",
-    date_evenement: "2026-02-05T10:15:00",
-    type: "relance",
-    state: "completed" as const,
-  },
-  {
-    id: "e4",
-    titre: "Analyse du dossier en cours",
-    description: "Preparation de l'assignation si pas de reponse sous 15 jours",
-    date_evenement: "2026-02-10T11:00:00",
-    type: "analyse",
-    state: "current" as const,
-  },
-  {
-    id: "e5",
-    titre: "Assignation prevue",
-    description: null,
-    date_evenement: "2026-02-25T09:00:00",
-    type: "assignation",
-    state: "upcoming" as const,
-  },
-];
+  const [dossierRaw, creancesRaw, documentsRaw, evenementsRaw, messagesRaw, heuresRaw, notesRaw] =
+    await Promise.all([
+      getDossierById(token, id).catch(() => null),
+      getCreances(token, id).catch(() => []),
+      getDocuments(token, id).catch(() => []),
+      getEvenements(token, id).catch(() => []),
+      getMessages(token, id).catch(() => []),
+      getHeures(token, { dossier_id: { _eq: id } }).catch(() => []),
+      getNotes(token, id).catch(() => []),
+    ]);
 
-const heures = [
-  {
-    id: "h1",
-    date: "10/02/2026",
-    description: "Analyse pieces justificatives",
-    duree: "1h30",
-    avocat: "Me Claire Fontaine",
-    facture: false,
-  },
-  {
-    id: "h2",
-    date: "05/02/2026",
-    description: "Relance telephonique debiteur",
-    duree: "0h15",
-    avocat: "Me Claire Fontaine",
-    facture: false,
-  },
-  {
-    id: "h3",
-    date: "25/01/2026",
-    description: "Redaction mise en demeure",
-    duree: "2h00",
-    avocat: "Me Claire Fontaine",
-    facture: true,
-  },
-  {
-    id: "h4",
-    date: "15/01/2026",
-    description: "Etude du dossier et pieces",
-    duree: "1h00",
-    avocat: "Me Claire Fontaine",
-    facture: true,
-  },
-];
+  if (!dossierRaw) {
+    return (
+      <div className="animate-fade-in space-y-6">
+        <Link
+          href="/admin/dossiers"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Retour aux dossiers
+        </Link>
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            Dossier introuvable
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-const notes = [
-  {
-    id: "n1",
-    date: "10/02/2026",
-    auteur: "Me Claire Fontaine",
-    contenu:
-      "Le debiteur ne repond ni aux courriers ni aux appels. Preparer l'assignation pour le 25/02 si pas de retour.",
-  },
-  {
-    id: "n2",
-    date: "25/01/2026",
-    auteur: "Me Claire Fontaine",
-    contenu:
-      "Mise en demeure envoyee en LRAR. Delai de reponse fixe a 15 jours.",
-  },
-  {
-    id: "n3",
-    date: "10/01/2026",
-    auteur: "Me Claire Fontaine",
-    contenu:
-      "Dossier recu du syndic Foncia. Charges impayees depuis 18 mois. Montant principal : 14 200 EUR.",
-  },
-];
+  const dossier = dossierRaw as Record<string, unknown>;
+  const creances = creancesRaw as Record<string, unknown>[];
+  const documents = documentsRaw as Record<string, unknown>[];
+  const evenements = evenementsRaw as Record<string, unknown>[];
+  const messagesData = messagesRaw as Record<string, unknown>[];
+  const heures = heuresRaw as Record<string, unknown>[];
+  const notes = notesRaw as Record<string, unknown>[];
 
-const documents = [
-  {
-    id: "doc1",
-    nom: "Mise en demeure - Dupont.pdf",
-    type: "Mise en demeure",
-    date: "25/01/2026",
-    taille: "245 Ko",
-  },
-  {
-    id: "doc2",
-    nom: "Releve de compte copropriete.pdf",
-    type: "Releve de compte",
-    date: "10/01/2026",
-    taille: "1,2 Mo",
-  },
-  {
-    id: "doc3",
-    nom: "Appel de fonds Q4 2025.pdf",
-    type: "Appel de fonds",
-    date: "10/01/2026",
-    taille: "380 Ko",
-  },
-  {
-    id: "doc4",
-    nom: "PV AG 2025.pdf",
-    type: "Proces-verbal",
-    date: "10/01/2026",
-    taille: "890 Ko",
-  },
-];
+  // Extract nested relations
+  const debiteur = dossier.debiteur_id as Record<string, unknown> | null;
+  const syndic = dossier.syndic_id as Record<string, unknown> | null;
+  const copropriete = dossier.copropriete_id as Record<string, unknown> | null;
+  const statut = (dossier.statut as string) || "nouveau";
 
-const messages = [
-  {
-    id: "m1",
-    contenu:
-      "Bonjour Me Fontaine, nous vous transmettons le dossier de M. Dupont. Les charges sont impayees depuis 18 mois.",
-    date_created: "2026-01-10T09:45:00",
-    expediteur_id: "syndic-1",
-    expediteur_nom: "Laurent Mercier",
-    expediteur_role: "syndic" as const,
-  },
-  {
-    id: "m2",
-    contenu:
-      "Bien recu. J'ai etudie les pieces, tout est en ordre. Je procede a l'envoi de la mise en demeure.",
-    date_created: "2026-01-15T11:20:00",
-    expediteur_id: "avocat-1",
-    expediteur_nom: "Me Claire Fontaine",
-    expediteur_role: "avocat" as const,
-  },
-  {
-    id: "m3",
-    contenu:
-      "Mise en demeure envoyee en LRAR le 25/01. Nous attendons le retour du debiteur sous 15 jours.",
-    date_created: "2026-01-25T15:00:00",
-    expediteur_id: "avocat-1",
-    expediteur_nom: "Me Claire Fontaine",
-    expediteur_role: "avocat" as const,
-  },
-  {
-    id: "m4",
-    contenu:
-      "Merci pour le suivi. Tenez-nous au courant de l'evolution. Avez-vous besoin de pieces supplementaires ?",
-    date_created: "2026-01-26T09:10:00",
-    expediteur_id: "syndic-1",
-    expediteur_nom: "Laurent Mercier",
-    expediteur_role: "syndic" as const,
-  },
-];
+  // Calculate totals from creances
+  const totalCreances = creances.reduce(
+    (sum, c) => sum + ((c.montant as number) || 0),
+    0
+  );
 
-/* ------------------------------------------------------------------ */
-/*  Page component                                                     */
-/* ------------------------------------------------------------------ */
+  // Map evenements to timeline events
+  const timelineEvents = evenements.map((e, idx) => ({
+    id: (e.id as string) || `e-${idx}`,
+    titre: (e.titre as string) || "Evenement",
+    description: (e.description as string) || null,
+    date_evenement: (e.date_evenement as string) || (e.date_created as string) || "",
+    type: (e.type as string) || "autre",
+    state: (idx === 0 ? "current" : "completed") as "completed" | "current" | "upcoming",
+  }));
 
-export default function AdminDossierDetailPage() {
+  // Map messages for MessageSender
+  const formattedMessages = messagesData.map((m) => {
+    const exp = m.expediteur_id as Record<string, unknown> | null;
+    const expRole = (exp?.role as Record<string, unknown>)?.name as string | undefined;
+    const isAvocat =
+      expRole?.toLowerCase().includes("avocat") ||
+      expRole?.toLowerCase().includes("admin");
+    return {
+      id: (m.id as string) || "",
+      contenu: (m.contenu as string) || "",
+      date_created: (m.date_created as string) || "",
+      expediteur_id: (exp?.id as string) || (m.expediteur_id as string) || "",
+      expediteur_nom: exp
+        ? `${(exp.first_name as string) || ""} ${(exp.last_name as string) || ""}`.trim()
+        : "Inconnu",
+      expediteur_role: (isAvocat ? "avocat" : "syndic") as "avocat" | "syndic",
+    };
+  });
+
+  const currentUserName = `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email;
+
+  const directusUrl = process.env.NEXT_PUBLIC_DIRECTUS_URL;
+
   return (
     <div className="animate-fade-in space-y-6">
       {/* Back link */}
@@ -254,29 +147,22 @@ export default function AdminDossierDetailPage() {
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-foreground">
-                {dossier.reference}
-              </h1>
-              <StatusBadge status={dossier.statut} />
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              {dossier.debiteur_nom} &mdash; {dossier.copropriete}
-            </p>
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-foreground">
+              {(dossier.reference as string) || "Sans reference"}
+            </h1>
+            <StatusBadge status={statut} />
           </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            {debiteur
+              ? `${(debiteur.prenom as string) || ""} ${(debiteur.nom as string) || ""}`.trim()
+              : "—"}
+            {" — "}
+            {(copropriete?.nom as string) || "—"}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline">
-            <Pencil className="h-4 w-4 mr-2" />
-            Modifier
-          </Button>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Nouvelle action
-          </Button>
-        </div>
+        <DossierStatusSelect dossierId={id} currentStatus={statut} />
       </div>
 
       {/* Tabs */}
@@ -289,22 +175,47 @@ export default function AdminDossierDetailPage() {
           <TabsTrigger value="timeline" className="gap-1.5">
             <Clock className="h-4 w-4" />
             Timeline
+            {timelineEvents.length > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                {timelineEvents.length}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="heures" className="gap-1.5">
             <CalendarDays className="h-4 w-4" />
             Heures
+            {heures.length > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                {heures.length}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="notes" className="gap-1.5">
             <StickyNote className="h-4 w-4" />
             Notes
+            {notes.length > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                {notes.length}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="documents" className="gap-1.5">
             <FileText className="h-4 w-4" />
             Documents
+            {documents.length > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                {documents.length}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="messages" className="gap-1.5">
             <MessageSquare className="h-4 w-4" />
             Messages
+            {formattedMessages.length > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                {formattedMessages.length}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -323,57 +234,66 @@ export default function AdminDossierDetailPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground">Reference</p>
-                    <p className="text-sm font-medium">{dossier.reference}</p>
+                    <p className="text-sm font-medium">
+                      {(dossier.reference as string) || "—"}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">
-                      Date de creation
-                    </p>
+                    <p className="text-xs text-muted-foreground">Date de creation</p>
                     <p className="text-sm font-medium">
-                      {dossier.date_creation}
+                      {dossier.date_created
+                        ? formatDate(dossier.date_created as string)
+                        : "—"}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Statut</p>
-                    <StatusBadge status={dossier.statut} className="mt-0.5" />
+                    <StatusBadge status={statut} className="mt-0.5" />
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Avocat</p>
-                    <p className="text-sm font-medium">{dossier.avocat}</p>
+                    <p className="text-xs text-muted-foreground">Phase</p>
+                    <p className="text-sm font-medium capitalize">
+                      {((dossier.phase as string) || "—").replace(/_/g, " ")}
+                    </p>
                   </div>
                 </div>
                 <Separator />
+                {/* Creances breakdown */}
                 <div>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Montants
-                  </p>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Principal</span>
-                      <span className="font-medium">
-                        {dossier.montant_principal}
-                      </span>
+                  <p className="text-xs text-muted-foreground mb-2">Creances</p>
+                  {creances.length > 0 ? (
+                    <div className="space-y-2">
+                      {creances.map((c, idx) => (
+                        <div
+                          key={(c.id as string) || idx}
+                          className="flex justify-between text-sm"
+                        >
+                          <span className="text-muted-foreground">
+                            {CREANCE_TYPE_LABELS[(c.type as string)] || (c.type as string) || "Creance"}
+                          </span>
+                          <span className="font-medium">
+                            {formatCurrency((c.montant as number) || 0)}
+                          </span>
+                        </div>
+                      ))}
+                      <Separator />
+                      <div className="flex justify-between text-sm font-semibold">
+                        <span>Total</span>
+                        <span className="text-red-600">
+                          {formatCurrency(
+                            (dossier.montant_total as number) || totalCreances
+                          )}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Frais</span>
-                      <span className="font-medium">
-                        {dossier.montant_frais}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Interets</span>
-                      <span className="font-medium">
-                        {dossier.montant_interets}
-                      </span>
-                    </div>
-                    <Separator />
+                  ) : (
                     <div className="flex justify-between text-sm font-semibold">
                       <span>Total</span>
                       <span className="text-red-600">
-                        {dossier.montant_total}
+                        {formatCurrency((dossier.montant_total as number) || 0)}
                       </span>
                     </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -389,25 +309,41 @@ export default function AdminDossierDetailPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">{dossier.debiteur_nom}</span>
-                    <span className="text-muted-foreground">
-                      ({dossier.debiteur_type})
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4 shrink-0" />
-                    <span>{dossier.debiteur_adresse}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Mail className="h-4 w-4 shrink-0" />
-                    <span>{dossier.debiteur_email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Phone className="h-4 w-4 shrink-0" />
-                    <span>{dossier.debiteur_telephone}</span>
-                  </div>
+                  {debiteur ? (
+                    <>
+                      <div className="flex items-center gap-2 text-sm">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">
+                          {`${(debiteur.prenom as string) || ""} ${(debiteur.nom as string) || ""}`.trim() || "—"}
+                        </span>
+                        <span className="text-muted-foreground">
+                          ({(debiteur.type as string) === "personne_morale"
+                            ? "Personne morale"
+                            : "Personne physique"})
+                        </span>
+                      </div>
+                      {(debiteur.adresse as string) && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <MapPin className="h-4 w-4 shrink-0" />
+                          <span>{debiteur.adresse as string}</span>
+                        </div>
+                      )}
+                      {(debiteur.email as string) && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Mail className="h-4 w-4 shrink-0" />
+                          <span>{debiteur.email as string}</span>
+                        </div>
+                      )}
+                      {(debiteur.telephone as string) && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Phone className="h-4 w-4 shrink-0" />
+                          <span>{debiteur.telephone as string}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Aucun debiteur associe</p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -421,23 +357,31 @@ export default function AdminDossierDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
-                    <p className="text-sm font-medium">{dossier.syndic}</p>
+                    <p className="text-sm font-medium">
+                      {(syndic?.raison_sociale as string) || "—"}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      {dossier.copropriete}
+                      {(copropriete?.nom as string) || "—"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4 shrink-0" />
-                    <span>{dossier.adresse}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Mail className="h-4 w-4 shrink-0" />
-                    <span>{dossier.syndic_email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Phone className="h-4 w-4 shrink-0" />
-                    <span>{dossier.syndic_telephone}</span>
-                  </div>
+                  {(copropriete?.adresse as string) && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="h-4 w-4 shrink-0" />
+                      <span>{copropriete?.adresse as string}</span>
+                    </div>
+                  )}
+                  {(syndic?.email as string) && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Mail className="h-4 w-4 shrink-0" />
+                      <span>{syndic?.email as string}</span>
+                    </div>
+                  )}
+                  {(syndic?.telephone as string) && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Phone className="h-4 w-4 shrink-0" />
+                      <span>{syndic?.telephone as string}</span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -448,12 +392,16 @@ export default function AdminDossierDetailPage() {
         <TabsContent value="timeline">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">
-                Historique du dossier
-              </CardTitle>
+              <CardTitle className="text-base">Historique du dossier</CardTitle>
             </CardHeader>
             <CardContent>
-              <Timeline events={timelineEvents} />
+              {timelineEvents.length > 0 ? (
+                <Timeline events={timelineEvents} />
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  Aucun evenement
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -463,16 +411,13 @@ export default function AdminDossierDetailPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">Heures enregistrees</CardTitle>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Ajouter des heures
-              </Button>
+              <AddHeureDialog dossierId={id} />
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
+                    <TableHead className="pl-6">Date</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Duree</TableHead>
                     <TableHead>Avocat</TableHead>
@@ -480,30 +425,46 @@ export default function AdminDossierDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {heures.map((h) => (
-                    <TableRow key={h.id} className="table-row-hover">
-                      <TableCell className="text-sm">{h.date}</TableCell>
-                      <TableCell className="text-sm">
-                        {h.description}
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">
-                        {h.duree}
-                      </TableCell>
-                      <TableCell className="text-sm">{h.avocat}</TableCell>
-                      <TableCell>
-                        <span
-                          className={cn(
-                            "rounded-full px-2.5 py-0.5 text-xs font-medium border inline-flex items-center",
-                            h.facture
-                              ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                              : "bg-amber-100 text-amber-700 border-amber-200"
-                          )}
-                        >
-                          {h.facture ? "Facturee" : "Non facturee"}
-                        </span>
+                  {heures.map((h) => {
+                    const duree = (h.duree as number) || 0;
+                    const dureeStr = `${Math.floor(duree)}h${String(Math.round((duree % 1) * 60)).padStart(2, "0")}`;
+                    const avocat = h.avocat_id as Record<string, unknown> | null;
+                    const avocatNom = avocat
+                      ? `${(avocat.first_name as string) || ""} ${(avocat.last_name as string) || ""}`.trim()
+                      : "—";
+                    const isFacture = !!(h.facture_id as string | null);
+                    return (
+                      <TableRow key={h.id as string} className="table-row-hover">
+                        <TableCell className="pl-6 text-sm">
+                          {h.date ? formatDate(h.date as string) : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {(h.description as string) || "—"}
+                        </TableCell>
+                        <TableCell className="text-sm font-medium">{dureeStr}</TableCell>
+                        <TableCell className="text-sm">{avocatNom}</TableCell>
+                        <TableCell>
+                          <span
+                            className={cn(
+                              "rounded-full px-2.5 py-0.5 text-xs font-medium border inline-flex items-center",
+                              isFacture
+                                ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                : "bg-amber-100 text-amber-700 border-amber-200"
+                            )}
+                          >
+                            {isFacture ? "Facturee" : "Non facturee"}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {heures.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        Aucune heure enregistree
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -515,30 +476,50 @@ export default function AdminDossierDetailPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">Notes internes</CardTitle>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Ajouter une note
-              </Button>
+              <AddNoteDialog dossierId={id} />
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {notes.map((n) => (
-                  <div
-                    key={n.id}
-                    className="rounded-lg border bg-muted/30 p-4"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-medium text-foreground">
-                        {n.auteur}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{n.date}</p>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {n.contenu}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              {notes.length > 0 ? (
+                <div className="space-y-4">
+                  {notes.map((n) => {
+                    const auteur = n.auteur_id as Record<string, unknown> | null;
+                    const auteurNom = auteur
+                      ? `${(auteur.first_name as string) || ""} ${(auteur.last_name as string) || ""}`.trim()
+                      : "—";
+                    return (
+                      <div
+                        key={n.id as string}
+                        className="rounded-lg border bg-muted/30 p-4"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-foreground">
+                              {auteurNom}
+                            </p>
+                            {(n.type as string) && (n.type as string) !== "interne" && (
+                              <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                                {(n.type as string)}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {n.date_created
+                              ? formatDate(n.date_created as string)
+                              : "—"}
+                          </p>
+                        </div>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                          {(n.contenu as string) || "—"}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  Aucune note
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -546,53 +527,66 @@ export default function AdminDossierDetailPage() {
         {/* ---- Documents ---- */}
         <TabsContent value="documents">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Documents</CardTitle>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Ajouter un document
-              </Button>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nom du fichier</TableHead>
+                    <TableHead className="pl-6">Nom du fichier</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Date</TableHead>
-                    <TableHead>Taille</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
+                    <TableHead className="text-right pr-6">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {documents.map((doc) => (
-                    <TableRow key={doc.id} className="table-row-hover">
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-red-500" />
-                          <span className="text-sm font-medium">
-                            {doc.nom}
+                  {documents.map((doc) => {
+                    const typeDoc = (doc.type as string) || "autre";
+                    const fileId = doc.fichier_id as string | null;
+                    const downloadUrl = fileId && directusUrl
+                      ? `${directusUrl}/assets/${fileId}?download`
+                      : null;
+                    return (
+                      <TableRow key={doc.id as string} className="table-row-hover">
+                        <TableCell className="pl-6">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-red-500" />
+                            <span className="text-sm font-medium">
+                              {(doc.nom as string) || (doc.titre as string) || "Document"}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="rounded-full px-2.5 py-0.5 text-xs font-medium border bg-slate-100 text-slate-700 border-slate-200">
+                            {DOCUMENT_TYPE_LABELS[typeDoc] || typeDoc}
                           </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="rounded-full px-2.5 py-0.5 text-xs font-medium border bg-slate-100 text-slate-700 border-slate-200">
-                          {doc.type}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {doc.date}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {doc.taille}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon">
-                          <Download className="h-4 w-4" />
-                        </Button>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {doc.date_created
+                            ? formatDate(doc.date_created as string)
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="text-right pr-6">
+                          {downloadUrl ? (
+                            <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </a>
+                          ) : (
+                            <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {documents.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                        Aucun document
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -601,9 +595,12 @@ export default function AdminDossierDetailPage() {
 
         {/* ---- Messages ---- */}
         <TabsContent value="messages">
-          <MessageThread
-            messages={messages}
-            currentUserId="avocat-1"
+          <MessageSender
+            dossierId={id}
+            messages={formattedMessages}
+            currentUserId={user.id}
+            currentUserName={currentUserName}
+            senderRole="avocat"
           />
         </TabsContent>
       </Tabs>

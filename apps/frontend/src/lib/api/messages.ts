@@ -37,3 +37,24 @@ export async function markAsRead(token: string, id: string) {
     })
   );
 }
+
+export async function getConversationsForSyndic(token: string, syndicId: string) {
+  const client = getClient(token);
+  return client.request(
+    readItems("messages", {
+      fields: [
+        "*",
+        "expediteur_id.id",
+        "expediteur_id.first_name",
+        "expediteur_id.last_name",
+        "expediteur_id.role.name",
+        "dossier_id.id",
+        "dossier_id.reference",
+        "dossier_id.debiteur_id.nom",
+        "dossier_id.debiteur_id.prenom",
+      ],
+      filter: { dossier_id: { syndic_id: { _eq: syndicId } } },
+      sort: ["-date_created"],
+    })
+  );
+}

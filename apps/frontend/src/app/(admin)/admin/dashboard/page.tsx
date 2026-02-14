@@ -20,134 +20,40 @@ import {
 import { Button } from "@/components/ui/button";
 import { StatsCard } from "@/components/shared/StatsCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { formatCurrency } from "@/lib/utils/format-currency";
+import { formatDate } from "@/lib/utils/format-date";
+import { requireAuth, getAuthToken } from "@/lib/dal";
+import { getAdminStats } from "@/lib/api/stats";
+import { getDossiers } from "@/lib/api/dossiers";
+import { getTaches } from "@/lib/api/taches";
 
-/* ------------------------------------------------------------------ */
-/*  Placeholder data                                                   */
-/* ------------------------------------------------------------------ */
+/* -------------------------------------------------------------------------- */
+/*  Page component (Server Component — async)                                 */
+/* -------------------------------------------------------------------------- */
 
-const stats = [
-  {
-    label: "Dossiers Actifs",
-    value: "47",
-    subtitle: "+3 cette semaine",
-    icon: FolderKanban,
-    iconBgColor: "bg-indigo-100",
-    iconColor: "text-indigo-600",
-  },
-  {
-    label: "Montant a Recouvrer",
-    value: "1 284 750,00 \u20AC",
-    subtitle: "Sur 47 dossiers actifs",
-    icon: AlertCircle,
-    iconBgColor: "bg-red-100",
-    iconColor: "text-red-600",
-    valueColor: "text-red-600",
-  },
-  {
-    label: "Montant Recouvre",
-    value: "462 300,00 \u20AC",
-    subtitle: "Taux de recouvrement : 26,4 %",
-    icon: TrendingUp,
-    iconBgColor: "bg-emerald-100",
-    iconColor: "text-emerald-600",
-    valueColor: "text-emerald-600",
-  },
-  {
-    label: "Taches Urgentes",
-    value: "12",
-    subtitle: "4 audiences cette semaine",
-    icon: CalendarCheck,
-    iconBgColor: "bg-amber-100",
-    iconColor: "text-amber-600",
-  },
-];
+export default async function AdminDashboardPage() {
+  await requireAuth();
+  const token = (await getAuthToken())!;
 
-const recentDossiers = [
-  {
-    id: "d1",
-    reference: "LR-2026-047",
-    copropriete: "Residence Les Oliviers",
-    debiteur: "Martin Dupont",
-    statut: "mise_en_demeure",
-    montant: "18 450,00 \u20AC",
-  },
-  {
-    id: "d2",
-    reference: "LR-2026-046",
-    copropriete: "Le Clos Saint-Jacques",
-    debiteur: "SCI Bellevue",
-    statut: "assignation",
-    montant: "34 200,00 \u20AC",
-  },
-  {
-    id: "d3",
-    reference: "LR-2026-045",
-    copropriete: "Les Terrasses du Parc",
-    debiteur: "Jean-Pierre Moreau",
-    statut: "audience",
-    montant: "12 780,00 \u20AC",
-  },
-  {
-    id: "d4",
-    reference: "LR-2026-044",
-    copropriete: "Domaine de la Source",
-    debiteur: "Sophie Lambert",
-    statut: "en_cours",
-    montant: "8 920,00 \u20AC",
-  },
-  {
-    id: "d5",
-    reference: "LR-2026-043",
-    copropriete: "Villa Marguerite",
-    debiteur: "Pierre Lefebvre",
-    statut: "jugement",
-    montant: "22 100,00 \u20AC",
-  },
-];
+  // Fetch data in parallel
+  const defaultStats = {
+    dossiersActifs: 0,
+    montantARecouvrer: 0,
+    montantRecouvre: 0,
+    dossiersClotures: 0,
+    tachesUrgentes: 0,
+    messagesNonLus: 0,
+  };
 
-const upcomingTasks = [
-  {
-    id: "t1",
-    titre: "Audience TGI Paris - SCI Bellevue",
-    date: "14/02/2026",
-    type: "audience",
-    urgent: true,
-  },
-  {
-    id: "t2",
-    titre: "Relance mise en demeure - Dupont",
-    date: "15/02/2026",
-    type: "relance",
-    urgent: true,
-  },
-  {
-    id: "t3",
-    titre: "Depot assignation - Moreau",
-    date: "17/02/2026",
-    type: "echeance",
-    urgent: false,
-  },
-  {
-    id: "t4",
-    titre: "RDV syndic - Residence Les Oliviers",
-    date: "18/02/2026",
-    type: "rdv",
-    urgent: false,
-  },
-  {
-    id: "t5",
-    titre: "Signification jugement - Lefebvre",
-    date: "20/02/2026",
-    type: "echeance",
-    urgent: false,
-  },
-];
+  const [stats, dossiersRaw, tachesRaw] = await Promise.all([
+    getAdminStats(token).catch(() => defaultStats),
+    getDossiers(token).catch(() => []),
+    getTaches(token, { statut: { _neq: "terminee" } }).catch(() => []),
+  ]);
 
-/* ------------------------------------------------------------------ */
-/*  Page component                                                     */
-/* ------------------------------------------------------------------ */
+  const recentDossiers = (dossiersRaw as Record<string, unknown>[]).slice(0, 5);
+  const upcomingTasks = (tachesRaw as Record<string, unknown>[]).slice(0, 5);
 
-export default function AdminDashboardPage() {
   return (
     <div className="animate-fade-in space-y-6">
       {/* Title */}
@@ -160,18 +66,40 @@ export default function AdminDashboardPage() {
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((s) => (
-          <StatsCard
-            key={s.label}
-            label={s.label}
-            value={s.value}
-            subtitle={s.subtitle}
-            icon={s.icon}
-            iconBgColor={s.iconBgColor}
-            iconColor={s.iconColor}
-            valueColor={s.valueColor}
-          />
-        ))}
+        <StatsCard
+          label="Dossiers Actifs"
+          value={stats.dossiersActifs.toString()}
+          subtitle="Dossiers en cours de traitement"
+          icon={FolderKanban}
+          iconBgColor="bg-indigo-100"
+          iconColor="text-indigo-600"
+        />
+        <StatsCard
+          label="Montant a Recouvrer"
+          value={formatCurrency(stats.montantARecouvrer)}
+          subtitle={`Sur ${stats.dossiersActifs} dossiers actifs`}
+          icon={AlertCircle}
+          iconBgColor="bg-red-100"
+          iconColor="text-red-600"
+          valueColor="text-red-600"
+        />
+        <StatsCard
+          label="Montant Recouvre"
+          value={formatCurrency(stats.montantRecouvre)}
+          subtitle="Recouvrement total"
+          icon={TrendingUp}
+          iconBgColor="bg-emerald-100"
+          iconColor="text-emerald-600"
+          valueColor="text-emerald-600"
+        />
+        <StatsCard
+          label="Taches Urgentes"
+          value={stats.tachesUrgentes.toString()}
+          subtitle={`${stats.messagesNonLus} messages non lus`}
+          icon={CalendarCheck}
+          iconBgColor="bg-amber-100"
+          iconColor="text-amber-600"
+        />
       </div>
 
       {/* Main grid: dossiers + tasks */}
@@ -188,39 +116,55 @@ export default function AdminDashboardPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Reference</TableHead>
-                  <TableHead>Copropriete</TableHead>
-                  <TableHead>Debiteur</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead className="text-right">Montant</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentDossiers.map((d) => (
-                  <TableRow key={d.id} className="table-row-hover">
-                    <TableCell>
-                      <Link
-                        href={`/admin/dossiers/${d.id}`}
-                        className="font-medium text-indigo-600 hover:underline"
-                      >
-                        {d.reference}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-sm">{d.copropriete}</TableCell>
-                    <TableCell className="text-sm">{d.debiteur}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={d.statut} />
-                    </TableCell>
-                    <TableCell className="text-right font-medium text-sm">
-                      {d.montant}
-                    </TableCell>
+            {recentDossiers.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Aucun dossier
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Reference</TableHead>
+                    <TableHead>Copropriete</TableHead>
+                    <TableHead>Debiteur</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead className="text-right">Montant</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {recentDossiers.map((d) => {
+                    const debiteur = d.debiteur_id as Record<string, unknown> | null;
+                    const copro = d.copropriete_id as Record<string, unknown> | null;
+                    const debiteurLabel = debiteur
+                      ? `${debiteur.prenom || ""} ${debiteur.nom || ""}`.trim()
+                      : "—";
+
+                    return (
+                      <TableRow key={d.id as string} className="table-row-hover">
+                        <TableCell>
+                          <Link
+                            href={`/admin/dossiers/${d.id}`}
+                            className="font-medium text-indigo-600 hover:underline"
+                          >
+                            {(d.reference as string) || "—"}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {(copro?.nom as string) || "—"}
+                        </TableCell>
+                        <TableCell className="text-sm">{debiteurLabel}</TableCell>
+                        <TableCell>
+                          <StatusBadge status={(d.statut as string) || "nouveau"} />
+                        </TableCell>
+                        <TableCell className="text-right font-medium text-sm">
+                          {formatCurrency((d.montant_total as number) || 0)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -236,43 +180,55 @@ export default function AdminDashboardPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {upcomingTasks.map((t) => (
-                <div
-                  key={t.id}
-                  className={cn(
-                    "flex items-start gap-3 rounded-lg p-3 transition-colors",
-                    t.urgent
-                      ? "bg-red-50 border border-red-100"
-                      : "bg-muted/40"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                      t.urgent
-                        ? "bg-red-100 text-red-600"
-                        : "bg-slate-100 text-slate-500"
-                    )}
-                  >
-                    <Clock className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {t.titre}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {t.date}
-                    </p>
-                  </div>
-                  {t.urgent && (
-                    <span className="rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-[10px] font-semibold shrink-0">
-                      Urgent
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
+            {upcomingTasks.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Aucune tache en cours
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {upcomingTasks.map((t) => {
+                  const isUrgent = (t.priorite as string) === "urgente" || (t.priorite as string) === "haute";
+                  const dossierRef = (t.dossier_id as Record<string, unknown>)?.reference as string | undefined;
+
+                  return (
+                    <div
+                      key={t.id as string}
+                      className={cn(
+                        "flex items-start gap-3 rounded-lg p-3 transition-colors",
+                        isUrgent
+                          ? "bg-red-50 border border-red-100"
+                          : "bg-muted/40"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                          isUrgent
+                            ? "bg-red-100 text-red-600"
+                            : "bg-slate-100 text-slate-500"
+                        )}
+                      >
+                        <Clock className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {(t.titre as string) || "—"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {dossierRef && `${dossierRef} — `}
+                          {t.date_echeance ? formatDate(t.date_echeance as string) : "—"}
+                        </p>
+                      </div>
+                      {isUrgent && (
+                        <span className="rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-[10px] font-semibold shrink-0">
+                          Urgent
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

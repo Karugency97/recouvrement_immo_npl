@@ -6,13 +6,12 @@ function getClient(token: string) {
   return createDirectus(DIRECTUS_URL).with(staticToken(token)).with(rest());
 }
 
-export async function getHeures(token: string, dossierId?: string) {
+export async function getHeures(token: string, filters?: Record<string, unknown>) {
   const client = getClient(token);
-  const filter = dossierId ? { dossier_id: { _eq: dossierId } } : undefined;
   return client.request(
     readItems("heures_facturables", {
-      fields: ["*", "avocat_id.first_name", "avocat_id.last_name", "dossier_id.reference"],
-      filter,
+      fields: ["*", "avocat_id.first_name", "avocat_id.last_name", "dossier_id.reference", "dossier_id.debiteur_id.nom", "dossier_id.debiteur_id.prenom"],
+      filter: filters,
       sort: ["-date"],
     })
   );

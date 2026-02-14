@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { createDirectus, rest, readMe } from "@directus/sdk";
+import { createDirectus, rest, staticToken, readMe } from "@directus/sdk";
 
 const directusUrl = process.env.NEXT_PUBLIC_DIRECTUS_URL!;
 
@@ -34,7 +34,9 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   if (!token) return null;
 
   try {
-    const client = createDirectus(directusUrl).with(rest());
+    const client = createDirectus(directusUrl)
+      .with(staticToken(token))
+      .with(rest());
     const user = await client.request(
       readMe({
         fields: ["id", "email", "first_name", "last_name", "role.id", "role.name"],

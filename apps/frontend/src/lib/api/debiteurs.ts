@@ -1,4 +1,4 @@
-import { createDirectus, rest, staticToken, readItem, createItem } from "@directus/sdk";
+import { createDirectus, rest, staticToken, readItem, readItems, createItem } from "@directus/sdk";
 
 const DIRECTUS_URL = process.env.NEXT_PUBLIC_DIRECTUS_URL!;
 
@@ -14,4 +14,15 @@ export async function getDebiteur(token: string, id: string) {
 export async function createDebiteur(token: string, data: Record<string, unknown>) {
   const client = getClient(token);
   return client.request(createItem("debiteurs", data));
+}
+
+export async function getDebiteurs(token: string, filters?: Record<string, unknown>) {
+  const client = getClient(token);
+  return client.request(
+    readItems("debiteurs", {
+      fields: ["*"],
+      filter: filters,
+      sort: ["nom"],
+    })
+  );
 }

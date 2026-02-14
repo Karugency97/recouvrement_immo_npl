@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "echo 'Directus extensions are built by Directus'"
+    "build": "echo 'Directus extensions are built by Directus'",
+    "setup:schema": "node scripts/setup-schema.mjs",
+    "setup:roles": "node scripts/setup-roles.mjs",
+    "seed": "node scripts/seed-data.mjs"
   }
 }

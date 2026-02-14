@@ -1,117 +1,40 @@
-import { FolderOpen, AlertCircle, TrendingUp, CheckCircle2, ArrowRight, Calendar, Clock } from "lucide-react";
+import { FolderOpen, AlertCircle, TrendingUp, CheckCircle2, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatsCard } from "@/components/shared/StatsCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/format-currency";
+import { requireAuth, getAuthToken, getUserRole } from "@/lib/dal";
+import { getClientStats } from "@/lib/api/stats";
+import { getDossiers } from "@/lib/api/dossiers";
+import { getSyndicByUserId } from "@/lib/api/syndics";
 
 /* -------------------------------------------------------------------------- */
-/*  Placeholder data (will be replaced by Directus API calls)                 */
+/*  Page component (Server Component — async)                                 */
 /* -------------------------------------------------------------------------- */
 
-const stats = {
-  dossiersActifs: 24,
-  montantARecouvrer: 184320.5,
-  montantRecouvre: 62499.0,
-  dossiersClotures: 12,
-};
+export default async function DashboardPage() {
+  const user = await requireAuth();
+  const token = (await getAuthToken())!;
+  const role = getUserRole(user);
 
-const recentDossiers = [
-  {
-    id: "1",
-    reference: "LR-2026-042",
-    debiteur: "SCI Les Tilleuls",
-    copropriete: "Residence Parc Monceau",
-    statut: "mise_en_demeure",
-    montant: 8450.0,
-    date_created: "2026-02-10",
-  },
-  {
-    id: "2",
-    reference: "LR-2026-041",
-    debiteur: "M. Jean Dupont",
-    copropriete: "Residence Les Lilas",
-    statut: "en_cours",
-    montant: 3200.0,
-    date_created: "2026-02-08",
-  },
-  {
-    id: "3",
-    reference: "LR-2026-039",
-    debiteur: "Mme Sophie Martin",
-    copropriete: "Residence Bellevue",
-    statut: "assignation",
-    montant: 12750.0,
-    date_created: "2026-02-05",
-  },
-  {
-    id: "4",
-    reference: "LR-2026-038",
-    debiteur: "SCI Horizon",
-    copropriete: "Les Jardins du Parc",
-    statut: "nouveau",
-    montant: 5800.0,
-    date_created: "2026-02-03",
-  },
-  {
-    id: "5",
-    reference: "LR-2026-035",
-    debiteur: "M. Pierre Lefebvre",
-    copropriete: "Domaine des Roses",
-    statut: "audience",
-    montant: 15200.0,
-    date_created: "2026-01-28",
-  },
-];
+  // Get syndic record for this user
+  const syndic = role === "syndic" ? await getSyndicByUserId(token, user.id) : null;
+  const syndicId = (syndic as Record<string, unknown> | null)?.id as string | undefined;
 
-const upcomingEvents = [
-  {
-    id: "1",
-    titre: "Audience TGI Paris",
-    description: "Dossier LR-2026-035 — M. Pierre Lefebvre",
-    date: "18 fevrier 2026",
-    heure: "14h30",
-    type: "audience",
-  },
-  {
-    id: "2",
-    titre: "Echeance mise en demeure",
-    description: "Dossier LR-2026-042 — SCI Les Tilleuls",
-    date: "22 fevrier 2026",
-    heure: "00h00",
-    type: "echeance",
-  },
-  {
-    id: "3",
-    titre: "Relance amiable",
-    description: "Dossier LR-2026-041 — M. Jean Dupont",
-    date: "25 fevrier 2026",
-    heure: "09h00",
-    type: "relance",
-  },
-  {
-    id: "4",
-    titre: "Rendez-vous avocat",
-    description: "Point sur les dossiers en cours",
-    date: "28 fevrier 2026",
-    heure: "10h00",
-    type: "rdv",
-  },
-];
+  // Fetch stats and recent dossiers in parallel
+  const defaultStats = { dossiersActifs: 0, montantARecouvrer: 0, montantRecouvre: 0, dossiersClotures: 0 };
+  const [stats, recentDossiersRaw] = await Promise.all([
+    syndicId
+      ? getClientStats(syndicId, token).catch(() => defaultStats)
+      : defaultStats,
+    syndicId
+      ? getDossiers(token, { syndic_id: { _eq: syndicId } }).catch(() => [])
+      : getDossiers(token).catch(() => []),
+  ]);
 
-const eventTypeColors: Record<string, string> = {
-  audience: "bg-purple-500",
-  echeance: "bg-amber-500",
-  relance: "bg-blue-500",
-  rdv: "bg-emerald-500",
-};
+  const recentDossiers = (recentDossiersRaw as Record<string, unknown>[]).slice(0, 5);
 
-/* -------------------------------------------------------------------------- */
-/*  Page component                                                            */
-/* -------------------------------------------------------------------------- */
-
-export default function DashboardPage() {
   return (
     <div className="animate-fade-in space-y-6">
       {/* Page heading */}
@@ -162,106 +85,63 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Content grid: Recent dossiers + Upcoming events */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent dossiers — spans 2 columns */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between pb-4">
-            <CardTitle className="text-base">Dossiers Recents</CardTitle>
-            <Link
-              href="/dossiers"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-            >
-              Voir tous
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </CardHeader>
-          <CardContent className="px-6 pb-6">
+      {/* Recent dossiers */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-4">
+          <CardTitle className="text-base">Dossiers Recents</CardTitle>
+          <Link
+            href="/dossiers"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+          >
+            Voir tous
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </CardHeader>
+        <CardContent className="px-6 pb-6">
+          {recentDossiers.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              Aucun dossier pour le moment
+            </p>
+          ) : (
             <div className="space-y-0 divide-y divide-border">
-              {recentDossiers.map((dossier) => (
-                <Link
-                  key={dossier.id}
-                  href={`/dossiers/${dossier.id}`}
-                  className="flex items-center justify-between py-3.5 hover:bg-muted/50 -mx-2 px-2 rounded-lg transition-colors group first:pt-0"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-foreground">
-                        {dossier.reference}
-                      </span>
-                      <StatusBadge status={dossier.statut} />
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-0.5 truncate">
-                      {dossier.debiteur} — {dossier.copropriete}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 ml-4 shrink-0">
-                    <span className="text-sm font-semibold text-foreground">
-                      {formatCurrency(dossier.montant)}
-                    </span>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              {recentDossiers.map((dossier) => {
+                const debiteur = dossier.debiteur_id as Record<string, unknown> | null;
+                const copro = dossier.copropriete_id as Record<string, unknown> | null;
+                const debiteurLabel = debiteur
+                  ? `${debiteur.prenom || ""} ${debiteur.nom || ""}`.trim()
+                  : "—";
+                const coproLabel = (copro?.nom as string) || "—";
 
-        {/* Upcoming events */}
-        <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-base">Evenements a Venir</CardTitle>
-          </CardHeader>
-          <CardContent className="px-6 pb-6">
-            <div className="space-y-0">
-              {upcomingEvents.map((event, index) => (
-                <div
-                  key={event.id}
-                  className={cn(
-                    "relative flex gap-3 pb-6",
-                    index === upcomingEvents.length - 1 && "pb-0"
-                  )}
-                >
-                  {/* Vertical connector line */}
-                  {index < upcomingEvents.length - 1 && (
-                    <div className="absolute left-[7px] top-5 h-[calc(100%-12px)] w-0.5 bg-border" />
-                  )}
-
-                  {/* Dot */}
-                  <div
-                    className={cn(
-                      "h-4 w-4 rounded-full mt-0.5 shrink-0 ring-4 ring-background",
-                      eventTypeColors[event.type] || "bg-slate-400"
-                    )}
-                  />
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground leading-tight">
-                      {event.titre}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      {event.description}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {event.date}
+                return (
+                  <Link
+                    key={dossier.id as string}
+                    href={`/dossiers/${dossier.id}`}
+                    className="flex items-center justify-between py-3.5 hover:bg-muted/50 -mx-2 px-2 rounded-lg transition-colors group first:pt-0"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-foreground">
+                          {(dossier.reference as string) || "—"}
+                        </span>
+                        <StatusBadge status={(dossier.statut as string) || "nouveau"} />
                       </div>
-                      {event.heure !== "00h00" && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {event.heure}
-                        </div>
-                      )}
+                      <p className="text-sm text-muted-foreground mt-0.5 truncate">
+                        {debiteurLabel} — {coproLabel}
+                      </p>
                     </div>
-                  </div>
-                </div>
-              ))}
+                    <div className="flex items-center gap-3 ml-4 shrink-0">
+                      <span className="text-sm font-semibold text-foreground">
+                        {formatCurrency((dossier.montant_total as number) || 0)}
+                      </span>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

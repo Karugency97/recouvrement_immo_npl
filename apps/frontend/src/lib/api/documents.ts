@@ -22,3 +22,14 @@ export async function createDocument(token: string, data: Record<string, unknown
   const client = getClient(token);
   return client.request(createItem("documents", data));
 }
+
+export async function getDocumentsForSyndic(token: string, syndicId: string) {
+  const client = getClient(token);
+  return client.request(
+    readItems("documents", {
+      fields: ["*", "uploaded_by.first_name", "uploaded_by.last_name", "dossier_id.reference", "dossier_id.id"],
+      filter: { dossier_id: { syndic_id: { _eq: syndicId } } },
+      sort: ["-date_created"],
+    })
+  );
+}

@@ -1,11 +1,32 @@
-import { FileText } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { requireAuth, getAuthToken } from "@/lib/dal";
+import { getSyndicByUserId } from "@/lib/api/syndics";
+import { getDocumentsForSyndic } from "@/lib/api/documents";
+import { DocumentSearch } from "@/components/documents/DocumentSearch";
 
-export default function DocumentsPage() {
+const DIRECTUS_URL = process.env.NEXT_PUBLIC_DIRECTUS_URL!;
+
+export default async function DocumentsPage() {
+  const user = await requireAuth();
+  const token = (await getAuthToken())!;
+
+  const syndic = await getSyndicByUserId(token, user.id).catch(() => null);
+  const syndicId = (syndic as Record<string, unknown> | null)?.id as string;
+
+  const documentsRaw = syndicId
+    ? ((await getDocumentsForSyndic(token, syndicId).catch(() => [])) as Record<string, unknown>[])
+    : [];
+
+  const documents = documentsRaw.map((doc) => ({
+    id: doc.id as string,
+    nom: (doc.nom as string) || "Document",
+    type: (doc.type as string) || "autre",
+    fichier: (doc.fichier as string) || null,
+    date_created: doc.date_created as string,
+    dossier_id: doc.dossier_id as { id: string; reference: string } | null,
+  }));
+
   return (
     <div className="animate-fade-in space-y-6">
-      {/* Page heading */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           Documents
@@ -15,16 +36,7 @@ export default function DocumentsPage() {
         </p>
       </div>
 
-      {/* Empty state placeholder */}
-      <Card>
-        <CardContent className="p-6">
-          <EmptyState
-            icon={FileText}
-            title="Aucun document"
-            description="Les documents associes a vos dossiers apparaitront ici. Commencez par creer un dossier pour ajouter des pieces."
-          />
-        </CardContent>
-      </Card>
+      <DocumentSearch documents={documents} directusUrl={DIRECTUS_URL} />
     </div>
   );
 }

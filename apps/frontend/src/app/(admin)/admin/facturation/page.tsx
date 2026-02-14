@@ -1,146 +1,19 @@
-import {
-  Clock,
-  Receipt,
-  Plus,
-  Download,
-  Send,
-  FileText,
-} from "lucide-react";
+import { Clock, Receipt, Plus, Download, Send, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatsCard } from "@/components/shared/StatsCard";
 import { FACTURE_STATUT_LABELS } from "@/lib/utils/constants";
-
-/* ------------------------------------------------------------------ */
-/*  Placeholder data                                                   */
-/* ------------------------------------------------------------------ */
-
-const heuresNonFacturees = [
-  {
-    id: "h1",
-    dossier_reference: "LR-2026-047",
-    dossier_id: "d1",
-    debiteur: "Martin Dupont",
-    description: "Analyse pieces justificatives",
-    date: "10/02/2026",
-    duree: "1h30",
-    tarif_horaire: "250,00 \u20AC",
-    montant: "375,00 \u20AC",
-    avocat: "Me Claire Fontaine",
-  },
-  {
-    id: "h2",
-    dossier_reference: "LR-2026-047",
-    dossier_id: "d1",
-    debiteur: "Martin Dupont",
-    description: "Relance telephonique debiteur",
-    date: "05/02/2026",
-    duree: "0h15",
-    tarif_horaire: "250,00 \u20AC",
-    montant: "62,50 \u20AC",
-    avocat: "Me Claire Fontaine",
-  },
-  {
-    id: "h3",
-    dossier_reference: "LR-2026-046",
-    dossier_id: "d2",
-    debiteur: "SCI Bellevue",
-    description: "Preparation audience TGI",
-    date: "08/02/2026",
-    duree: "3h00",
-    tarif_horaire: "250,00 \u20AC",
-    montant: "750,00 \u20AC",
-    avocat: "Me Claire Fontaine",
-  },
-  {
-    id: "h4",
-    dossier_reference: "LR-2026-045",
-    dossier_id: "d3",
-    debiteur: "Jean-Pierre Moreau",
-    description: "Redaction conclusions",
-    date: "03/02/2026",
-    duree: "2h30",
-    tarif_horaire: "250,00 \u20AC",
-    montant: "625,00 \u20AC",
-    avocat: "Me Claire Fontaine",
-  },
-  {
-    id: "h5",
-    dossier_reference: "LR-2026-042",
-    dossier_id: "d6",
-    debiteur: "Marie Durand",
-    description: "Suivi execution forcee",
-    date: "01/02/2026",
-    duree: "1h00",
-    tarif_horaire: "250,00 \u20AC",
-    montant: "250,00 \u20AC",
-    avocat: "Me Claire Fontaine",
-  },
-];
-
-const factures = [
-  {
-    id: "f1",
-    numero: "FAC-2026-012",
-    syndic: "Foncia Paris Ouest",
-    dossier_reference: "LR-2026-041",
-    date_emission: "31/01/2026",
-    montant_ht: "1 500,00 \u20AC",
-    montant_ttc: "1 800,00 \u20AC",
-    statut: "payee",
-  },
-  {
-    id: "f2",
-    numero: "FAC-2026-011",
-    syndic: "Nexity Gestion",
-    dossier_reference: "LR-2026-038",
-    date_emission: "28/01/2026",
-    montant_ht: "2 250,00 \u20AC",
-    montant_ttc: "2 700,00 \u20AC",
-    statut: "envoyee",
-  },
-  {
-    id: "f3",
-    numero: "FAC-2026-010",
-    syndic: "Citya Immobilier",
-    dossier_reference: "LR-2026-035",
-    date_emission: "25/01/2026",
-    montant_ht: "875,00 \u20AC",
-    montant_ttc: "1 050,00 \u20AC",
-    statut: "en_retard",
-  },
-  {
-    id: "f4",
-    numero: "FAC-2026-009",
-    syndic: "Lamy - Gestrim",
-    dossier_reference: "LR-2026-032",
-    date_emission: "20/01/2026",
-    montant_ht: "3 125,00 \u20AC",
-    montant_ttc: "3 750,00 \u20AC",
-    statut: "payee",
-  },
-  {
-    id: "f5",
-    numero: "FAC-2026-008",
-    syndic: "Foncia Paris Ouest",
-    dossier_reference: "LR-2026-030",
-    date_emission: "15/01/2026",
-    montant_ht: "1 875,00 \u20AC",
-    montant_ttc: "2 250,00 \u20AC",
-    statut: "emise",
-  },
-];
+import { requireAuth, getAuthToken } from "@/lib/dal";
+import { getHeures } from "@/lib/api/heures";
+import { getFactures } from "@/lib/api/factures";
+import { formatCurrency } from "@/lib/utils/format-currency";
+import { formatDate } from "@/lib/utils/format-date";
 
 const factureStatutStyles: Record<string, string> = {
   brouillon: "bg-slate-100 text-slate-700 border-slate-200",
@@ -151,17 +24,26 @@ const factureStatutStyles: Record<string, string> = {
   annulee: "bg-slate-100 text-slate-700 border-slate-200",
 };
 
-/* ------------------------------------------------------------------ */
-/*  Page component                                                     */
-/* ------------------------------------------------------------------ */
+export default async function AdminFacturationPage() {
+  await requireAuth();
+  const token = (await getAuthToken())!;
 
-export default function AdminFacturationPage() {
-  const totalHeuresNonFacturees = "8h15";
-  const totalMontantEnAttente = "2 062,50 \u20AC";
+  const [heuresRaw, facturesRaw] = await Promise.all([
+    getHeures(token, { facture_id: { _null: true } }).catch(() => []) as Promise<Record<string, unknown>[]>,
+    getFactures(token).catch(() => []) as Promise<Record<string, unknown>[]>,
+  ]);
+
+  const heures = heuresRaw as Record<string, unknown>[];
+  const factures = facturesRaw as Record<string, unknown>[];
+
+  // Calculate stats
+  const totalDuree = heures.reduce((sum, h) => sum + ((h.duree as number) || 0), 0);
+  const totalDureeStr = `${Math.floor(totalDuree)}h${String(Math.round((totalDuree % 1) * 60)).padStart(2, "0")}`;
+  const tarifHoraire = 250;
+  const totalMontant = totalDuree * tarifHoraire;
 
   return (
     <div className="animate-fade-in space-y-6">
-      {/* Title */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Facturation</h1>
@@ -175,19 +57,18 @@ export default function AdminFacturationPage() {
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <StatsCard
           label="Heures non facturees"
-          value={totalHeuresNonFacturees}
-          subtitle="5 entrees en attente de facturation"
+          value={totalDureeStr}
+          subtitle={`${heures.length} entree${heures.length > 1 ? "s" : ""} en attente de facturation`}
           icon={Clock}
           iconBgColor="bg-amber-100"
           iconColor="text-amber-600"
         />
         <StatsCard
           label="Total en attente"
-          value={totalMontantEnAttente}
+          value={formatCurrency(totalMontant)}
           subtitle="A facturer aux syndics"
           icon={Receipt}
           iconBgColor="bg-indigo-100"
@@ -196,38 +77,28 @@ export default function AdminFacturationPage() {
         />
       </div>
 
-      {/* Tabs */}
       <Tabs defaultValue="heures" className="space-y-4">
         <TabsList>
           <TabsTrigger value="heures" className="gap-1.5">
             <Clock className="h-4 w-4" />
             Heures non facturees
-            <Badge
-              variant="secondary"
-              className="ml-1 h-5 px-1.5 text-[10px]"
-            >
-              {heuresNonFacturees.length}
+            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+              {heures.length}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="factures" className="gap-1.5">
             <FileText className="h-4 w-4" />
             Factures
-            <Badge
-              variant="secondary"
-              className="ml-1 h-5 px-1.5 text-[10px]"
-            >
+            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
               {factures.length}
             </Badge>
           </TabsTrigger>
         </TabsList>
 
-        {/* ---- Heures non facturees ---- */}
         <TabsContent value="heures">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">
-                Heures en attente de facturation
-              </CardTitle>
+              <CardTitle className="text-base">Heures en attente de facturation</CardTitle>
               <Button size="sm" variant="outline">
                 <Receipt className="h-4 w-4 mr-2" />
                 Generer une facture
@@ -246,50 +117,57 @@ export default function AdminFacturationPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {heuresNonFacturees.map((h) => (
-                    <TableRow key={h.id} className="table-row-hover">
-                      <TableCell className="pl-6">
-                        <span className="text-sm font-medium text-indigo-600">
-                          {h.dossier_reference}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm">{h.debiteur}</TableCell>
-                      <TableCell className="text-sm">
-                        {h.description}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {h.date}
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">
-                        {h.duree}
-                      </TableCell>
-                      <TableCell className="text-right pr-6 text-sm font-medium">
-                        {h.montant}
+                  {heures.map((h) => {
+                    const dossier = h.dossier_id as Record<string, unknown> | null;
+                    const debiteur = dossier?.debiteur_id as Record<string, unknown> | null;
+                    const duree = (h.duree as number) || 0;
+                    const montant = duree * tarifHoraire;
+                    const dureeStr = `${Math.floor(duree)}h${String(Math.round((duree % 1) * 60)).padStart(2, "0")}`;
+                    return (
+                      <TableRow key={h.id as string} className="table-row-hover">
+                        <TableCell className="pl-6">
+                          <span className="text-sm font-medium text-indigo-600">
+                            {(dossier?.reference as string) || "—"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {debiteur
+                            ? `${(debiteur.prenom as string) || ""} ${(debiteur.nom as string) || ""}`.trim()
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm">{(h.description as string) || "—"}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {h.date ? formatDate(h.date as string) : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm font-medium">{dureeStr}</TableCell>
+                        <TableCell className="text-right pr-6 text-sm font-medium">
+                          {formatCurrency(montant)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {heures.length > 0 && (
+                    <TableRow className="bg-muted/50 font-medium">
+                      <TableCell colSpan={4} className="pl-6 text-sm font-semibold">Total</TableCell>
+                      <TableCell className="text-sm font-semibold">{totalDureeStr}</TableCell>
+                      <TableCell className="text-right pr-6 text-sm font-semibold text-indigo-600">
+                        {formatCurrency(totalMontant)}
                       </TableCell>
                     </TableRow>
-                  ))}
-                  {/* Total row */}
-                  <TableRow className="bg-muted/50 font-medium">
-                    <TableCell
-                      colSpan={4}
-                      className="pl-6 text-sm font-semibold"
-                    >
-                      Total
-                    </TableCell>
-                    <TableCell className="text-sm font-semibold">
-                      {totalHeuresNonFacturees}
-                    </TableCell>
-                    <TableCell className="text-right pr-6 text-sm font-semibold text-indigo-600">
-                      {totalMontantEnAttente}
-                    </TableCell>
-                  </TableRow>
+                  )}
+                  {heures.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        Aucune heure non facturee
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* ---- Factures ---- */}
         <TabsContent value="factures">
           <Card>
             <CardContent className="p-0">
@@ -307,58 +185,64 @@ export default function AdminFacturationPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {factures.map((f) => (
-                    <TableRow key={f.id} className="table-row-hover">
-                      <TableCell className="pl-6">
-                        <span className="text-sm font-medium">
-                          {f.numero}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm">{f.syndic}</TableCell>
-                      <TableCell>
-                        <span className="text-sm font-medium text-indigo-600">
-                          {f.dossier_reference}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {f.date_emission}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {f.montant_ht}
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">
-                        {f.montant_ttc}
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={cn(
-                            "rounded-full px-2.5 py-0.5 text-xs font-medium border inline-flex items-center",
-                            factureStatutStyles[f.statut] ||
-                              "bg-slate-100 text-slate-700 border-slate-200"
-                          )}
-                        >
-                          {FACTURE_STATUT_LABELS[f.statut] || f.statut}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right pr-6">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          {(f.statut === "emise" ||
-                            f.statut === "brouillon") && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                            >
-                              <Send className="h-4 w-4" />
+                  {factures.map((f) => {
+                    const syndic = f.syndic_id as Record<string, unknown> | null;
+                    const dossier = f.dossier_id as Record<string, unknown> | null;
+                    const statut = (f.statut as string) || "brouillon";
+                    return (
+                      <TableRow key={f.id as string} className="table-row-hover">
+                        <TableCell className="pl-6">
+                          <span className="text-sm font-medium">{(f.numero as string) || "—"}</span>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {(syndic?.raison_sociale as string) || "—"}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm font-medium text-indigo-600">
+                            {(dossier?.reference as string) || "—"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {f.date_emission ? formatDate(f.date_emission as string) : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {f.montant_ht ? formatCurrency(f.montant_ht as number) : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm font-medium">
+                          {f.montant_ttc ? formatCurrency(f.montant_ttc as number) : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={cn(
+                              "rounded-full px-2.5 py-0.5 text-xs font-medium border inline-flex items-center",
+                              factureStatutStyles[statut] || "bg-slate-100 text-slate-700 border-slate-200"
+                            )}
+                          >
+                            {FACTURE_STATUT_LABELS[statut] || statut}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right pr-6">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Download className="h-4 w-4" />
                             </Button>
-                          )}
-                        </div>
+                            {(statut === "emise" || statut === "brouillon") && (
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Send className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {factures.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        Aucune facture
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
