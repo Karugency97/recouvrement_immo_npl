@@ -24,12 +24,13 @@ export async function POST(request: NextRequest) {
     const data = await res.json();
     const { access_token, refresh_token, expires } = data.data;
 
+    const isSecure = request.nextUrl.protocol === "https:";
     const response = NextResponse.json({ success: true });
 
     // Set access token as HTTP-only cookie
     response.cookies.set("auth_token", access_token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isSecure,
       sameSite: "lax",
       path: "/",
       maxAge: Math.floor(expires / 1000),
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     // Set refresh token as HTTP-only cookie
     response.cookies.set("refresh_token", refresh_token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isSecure,
       sameSite: "lax",
       path: "/",
       maxAge: 7 * 24 * 60 * 60, // 7 days

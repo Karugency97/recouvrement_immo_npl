@@ -61,17 +61,18 @@ async function tryRefreshAndContinue(
     const { access_token, refresh_token: newRefreshToken, expires } = data.data;
 
     // Continue to the original page with refreshed cookies
+    const isSecure = request.nextUrl.protocol === "https:";
     const response = NextResponse.next();
     response.cookies.set("auth_token", access_token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isSecure,
       sameSite: "lax",
       path: "/",
       maxAge: Math.floor(expires / 1000),
     });
     response.cookies.set("refresh_token", newRefreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isSecure,
       sameSite: "lax",
       path: "/",
       maxAge: 7 * 24 * 60 * 60,
