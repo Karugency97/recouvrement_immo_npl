@@ -14,8 +14,8 @@ build/
 # Env
 .env
 .env.local
-.env.production.local
-.env.development.local
+.env.*.local
+!.env.example
 
 # OS
 .DS_Store
@@ -26,6 +26,17 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+.cursor/
+
+# AI tools
+.agent/
+.agents/
+.claude/
+.continue/
+.trae/
+.windsurf/
+.zencoder/
+.mcp.json
 
 # Debug
 npm-debug.log*
@@ -35,6 +46,7 @@ yarn-error.log*
 
 # TypeScript
 *.tsbuildinfo
+next-env.d.ts
 
 # Directus
 apps/directus/uploads/
@@ -43,3 +55,4 @@ apps/directus/database/
 # Misc
 *.log
 coverage/
+Screen/
