@@ -4,7 +4,7 @@ import {
   User,
   Calendar,
   FileText,
-  Download,
+  Eye,
   MapPin,
   Mail,
   Phone,
@@ -384,9 +384,17 @@ export default async function DossierDetailPage({
                             </div>
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon" className="shrink-0">
-                          <Download className="h-4 w-4" />
-                        </Button>
+                        {((doc.fichier as string) || (doc.fichier_id as string)) ? (
+                          <Button variant="ghost" size="icon" className="shrink-0" asChild>
+                            <a href={`/api/files/${(doc.fichier as string) || (doc.fichier_id as string)}`} target="_blank" rel="noopener noreferrer">
+                              <Eye className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        ) : (
+                          <Button variant="ghost" size="icon" className="shrink-0" disabled>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     );
                   })}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, FileText, Download } from "lucide-react";
+import { Search, FileText, Eye } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,10 +28,9 @@ interface Document {
 
 interface DocumentSearchProps {
   documents: Document[];
-  directusUrl: string;
 }
 
-export function DocumentSearch({ documents, directusUrl }: DocumentSearchProps) {
+export function DocumentSearch({ documents }: DocumentSearchProps) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
 
@@ -154,11 +153,11 @@ export function DocumentSearch({ documents, directusUrl }: DocumentSearchProps) 
                         asChild
                       >
                         <a
-                          href={`${directusUrl}/assets/${doc.fichier}?download`}
+                          href={`/api/files/${doc.fichier}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          <Download className="h-4 w-4" />
+                          <Eye className="h-4 w-4" />
                         </a>
                       </Button>
                     )}

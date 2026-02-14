@@ -3,8 +3,6 @@ import { getSyndicByUserId } from "@/lib/api/syndics";
 import { getDocumentsForSyndic } from "@/lib/api/documents";
 import { DocumentSearch } from "@/components/documents/DocumentSearch";
 
-const DIRECTUS_URL = process.env.NEXT_PUBLIC_DIRECTUS_URL!;
-
 export default async function DocumentsPage() {
   const user = await requireAuth();
   const token = (await getAuthToken())!;
@@ -36,7 +34,7 @@ export default async function DocumentsPage() {
         </p>
       </div>
 
-      <DocumentSearch documents={documents} directusUrl={DIRECTUS_URL} />
+      <DocumentSearch documents={documents} />
     </div>
   );
 }

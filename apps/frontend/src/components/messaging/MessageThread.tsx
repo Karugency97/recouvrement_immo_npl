@@ -10,8 +10,6 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDateTime } from "@/lib/utils/format-date";
 
-const DIRECTUS_URL = process.env.NEXT_PUBLIC_DIRECTUS_URL!;
-
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -147,7 +145,7 @@ export function MessageThread({
                     {msg.contenu}
                     {attachment && (
                       <a
-                        href={`${DIRECTUS_URL}/assets/${attachment.id}?download`}
+                        href={`/api/files/${attachment.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className={cn(

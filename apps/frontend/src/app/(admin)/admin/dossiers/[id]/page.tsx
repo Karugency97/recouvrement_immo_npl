@@ -13,7 +13,6 @@ import {
   Phone,
   Mail,
   Scale,
-  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -137,8 +136,6 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
   });
 
   const currentUserName = `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email;
-
-  const directusUrl = process.env.NEXT_PUBLIC_DIRECTUS_URL;
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -546,10 +543,8 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
                 <TableBody>
                   {documents.map((doc) => {
                     const typeDoc = (doc.type as string) || "autre";
-                    const fileId = doc.fichier_id as string | null;
-                    const downloadUrl = fileId && directusUrl
-                      ? `${directusUrl}/assets/${fileId}?download`
-                      : null;
+                    const fileId = (doc.fichier as string) || (doc.fichier_id as string) || null;
+                    const viewUrl = fileId ? `/api/files/${fileId}` : null;
                     return (
                       <TableRow key={doc.id as string} className="table-row-hover">
                         <TableCell className="pl-6">
@@ -571,15 +566,15 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
                             : "—"}
                         </TableCell>
                         <TableCell className="text-right pr-6">
-                          {downloadUrl ? (
-                            <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+                          {viewUrl ? (
+                            <a href={viewUrl} target="_blank" rel="noopener noreferrer">
                               <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <Download className="h-4 w-4" />
+                                <Eye className="h-4 w-4" />
                               </Button>
                             </a>
                           ) : (
                             <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
-                              <Download className="h-4 w-4" />
+                              <Eye className="h-4 w-4" />
                             </Button>
                           )}
                         </TableCell>
