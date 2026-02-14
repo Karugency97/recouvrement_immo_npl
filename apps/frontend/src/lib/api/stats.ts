@@ -17,7 +17,7 @@ export async function getClientStats(
   token: string
 ): Promise<ClientStats> {
   const res = await fetch(
-    `${DIRECTUS_URL}/dashboard-stats/client/${syndicId}`,
+    `${DIRECTUS_URL}/directus-extension-dashboard-stats/client/${syndicId}`,
     {
       headers: { Authorization: `Bearer ${token}` },
       next: { revalidate: 60 },
@@ -28,7 +28,7 @@ export async function getClientStats(
 }
 
 export async function getAdminStats(token: string): Promise<AdminStats> {
-  const res = await fetch(`${DIRECTUS_URL}/dashboard-stats/admin`, {
+  const res = await fetch(`${DIRECTUS_URL}/directus-extension-dashboard-stats/admin`, {
     headers: { Authorization: `Bearer ${token}` },
     next: { revalidate: 60 },
   });
