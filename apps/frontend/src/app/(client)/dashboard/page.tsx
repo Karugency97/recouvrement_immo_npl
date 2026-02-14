@@ -131,7 +131,7 @@ export default async function DashboardPage() {
                     </div>
                     <div className="flex items-center gap-3 ml-4 shrink-0">
                       <span className="text-sm font-semibold text-foreground">
-                        {formatCurrency((dossier.montant_total as number) || 0)}
+                        {formatCurrency(Number(dossier.montant_initial) || 0)}
                       </span>
                       <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>

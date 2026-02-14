@@ -97,7 +97,7 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
 
   // Calculate totals from creances
   const totalCreances = creances.reduce(
-    (sum, c) => sum + ((c.montant as number) || 0),
+    (sum, c) => sum + (Number(c.montant) || 0),
     0
   );
 
@@ -272,7 +272,7 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
                             {CREANCE_TYPE_LABELS[(c.type as string)] || (c.type as string) || "Creance"}
                           </span>
                           <span className="font-medium">
-                            {formatCurrency((c.montant as number) || 0)}
+                            {formatCurrency(Number(c.montant) || 0)}
                           </span>
                         </div>
                       ))}
@@ -281,7 +281,7 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
                         <span>Total</span>
                         <span className="text-red-600">
                           {formatCurrency(
-                            (dossier.montant_total as number) || totalCreances
+                            totalCreances || Number(dossier.montant_initial) || 0
                           )}
                         </span>
                       </div>
@@ -290,7 +290,7 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
                     <div className="flex justify-between text-sm font-semibold">
                       <span>Total</span>
                       <span className="text-red-600">
-                        {formatCurrency((dossier.montant_total as number) || 0)}
+                        {formatCurrency(Number(dossier.montant_initial) || 0)}
                       </span>
                     </div>
                   )}
@@ -426,8 +426,8 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
                 </TableHeader>
                 <TableBody>
                   {heures.map((h) => {
-                    const duree = (h.duree as number) || 0;
-                    const dureeStr = `${Math.floor(duree)}h${String(Math.round((duree % 1) * 60)).padStart(2, "0")}`;
+                    const minutes = Number(h.duree_minutes) || 0;
+                    const dureeStr = `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}`;
                     const avocat = h.avocat_id as Record<string, unknown> | null;
                     const avocatNom = avocat
                       ? `${(avocat.first_name as string) || ""} ${(avocat.last_name as string) || ""}`.trim()

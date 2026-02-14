@@ -37,10 +37,10 @@ export default async function AdminFacturationPage() {
   const factures = facturesRaw as Record<string, unknown>[];
 
   // Calculate stats
-  const totalDuree = heures.reduce((sum, h) => sum + ((h.duree as number) || 0), 0);
-  const totalDureeStr = `${Math.floor(totalDuree)}h${String(Math.round((totalDuree % 1) * 60)).padStart(2, "0")}`;
+  const totalMinutes = heures.reduce((sum, h) => sum + (Number(h.duree_minutes) || 0), 0);
+  const totalDureeStr = `${Math.floor(totalMinutes / 60)}h${String(totalMinutes % 60).padStart(2, "0")}`;
   const tarifHoraire = 250;
-  const totalMontant = totalDuree * tarifHoraire;
+  const totalMontant = (totalMinutes / 60) * tarifHoraire;
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -120,9 +120,9 @@ export default async function AdminFacturationPage() {
                   {heures.map((h) => {
                     const dossier = h.dossier_id as Record<string, unknown> | null;
                     const debiteur = dossier?.debiteur_id as Record<string, unknown> | null;
-                    const duree = (h.duree as number) || 0;
-                    const montant = duree * tarifHoraire;
-                    const dureeStr = `${Math.floor(duree)}h${String(Math.round((duree % 1) * 60)).padStart(2, "0")}`;
+                    const minutes = Number(h.duree_minutes) || 0;
+                    const montant = (minutes / 60) * tarifHoraire;
+                    const dureeStr = `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}`;
                     return (
                       <TableRow key={h.id as string} className="table-row-hover">
                         <TableCell className="pl-6">

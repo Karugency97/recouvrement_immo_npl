@@ -157,7 +157,7 @@ export default async function AdminDashboardPage() {
                           <StatusBadge status={(d.statut as string) || "nouveau"} />
                         </TableCell>
                         <TableCell className="text-right font-medium text-sm">
-                          {formatCurrency((d.montant_total as number) || 0)}
+                          {formatCurrency(Number(d.montant_initial) || 0)}
                         </TableCell>
                       </TableRow>
                     );

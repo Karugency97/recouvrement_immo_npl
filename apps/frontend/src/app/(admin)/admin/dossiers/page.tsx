@@ -18,7 +18,7 @@ export default async function AdminDossiersPage() {
       reference: (d.reference as string) || "—",
       statut: (d.statut as string) || "nouveau",
       phase: (d.phase as string) || "amiable",
-      montant_total: (d.montant_total as number) || 0,
+      montant_total: Number(d.montant_initial) || 0,
       date_created: d.date_created as string,
       copropriete: (copro?.nom as string) || "—",
       debiteur: debiteur

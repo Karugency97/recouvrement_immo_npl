@@ -99,8 +99,8 @@ export default async function DossierDetailPage({
   const evenements = evenementsRaw as Record<string, unknown>[];
   const messages = messagesRaw as Record<string, unknown>[];
 
-  const montantTotal = (dossier.montant_total as number) || 0;
-  const montantRecouvre = (dossier.montant_recouvre as number) || 0;
+  const montantTotal = Number(dossier.montant_initial) || 0;
+  const montantRecouvre = Number(dossier.montant_recouvre) || 0;
   const pourcentage =
     montantTotal > 0 ? Math.round((montantRecouvre / montantTotal) * 100) : 0;
 
