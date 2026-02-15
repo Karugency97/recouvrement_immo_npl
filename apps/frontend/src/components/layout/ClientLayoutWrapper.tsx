@@ -31,7 +31,7 @@ export function ClientLayoutWrapper({
         onMobileOpenChange={setMobileOpen}
       />
       <main className="flex-1 md:ml-[280px] pt-14 md:pt-0">
-        <Header userName={userName} variant="client" />
+        <Header userName={userName} variant="client" unreadCount={unreadCount} />
         <div className="p-4 md:p-6">{children}</div>
       </main>
     </>

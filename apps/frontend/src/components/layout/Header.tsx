@@ -7,9 +7,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 interface HeaderProps {
   userName: string;
   variant?: "client" | "admin";
+  unreadCount?: number;
 }
 
-export function Header({ userName, variant = "client" }: HeaderProps) {
+export function Header({ userName, variant = "client", unreadCount = 0 }: HeaderProps) {
   const getInitials = (name: string) =>
     name
       .split(" ")
@@ -31,11 +32,13 @@ export function Header({ userName, variant = "client" }: HeaderProps) {
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5 text-muted-foreground" />
-          <span
-            className={`absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full ${badgeBg} text-[10px] font-medium text-slate-100`}
-          >
-            3
-          </span>
+          {unreadCount > 0 && (
+            <span
+              className={`absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full ${badgeBg} text-[10px] font-medium text-slate-100`}
+            >
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
         </Button>
         <Avatar className="h-8 w-8">
           <AvatarFallback className={`${avatarBg} text-xs`}>

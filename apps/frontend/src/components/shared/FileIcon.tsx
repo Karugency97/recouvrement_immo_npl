@@ -1,4 +1,4 @@
-import { FileText, Image, File, FileSpreadsheet } from "lucide-react";
+import { FileText, ImageIcon, File, FileSpreadsheet } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FileIconProps {
@@ -22,7 +22,7 @@ export function FileIcon({ filename, className }: FileIconProps) {
   }
 
   if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) {
-    return <Image className={cn("text-purple-500", className)} />;
+    return <ImageIcon className={cn("text-purple-500", className)} />;
   }
 
   return <File className={cn("text-slate-400", className)} />;

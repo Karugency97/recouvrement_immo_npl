@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { Send, Paperclip, X, FileText, Image as ImageIcon, File as FileIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -78,11 +79,11 @@ export function MessageThread({
     if (!file) return;
 
     if (file.size > MAX_FILE_SIZE) {
-      alert("Le fichier ne doit pas depasser 10 Mo");
+      toast.error("Le fichier ne doit pas depasser 10 Mo");
       return;
     }
     if (!ALLOWED_TYPES.includes(file.type)) {
-      alert("Type de fichier non supporte. Formats acceptes : PDF, Word, JPEG, PNG, WebP");
+      toast.error("Type de fichier non supporte. Formats acceptes : PDF, Word, JPEG, PNG, WebP");
       return;
     }
 
