@@ -104,7 +104,7 @@ export default async function AdminFacturationPage() {
                 Generer une facture
               </Button>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -170,7 +170,7 @@ export default async function AdminFacturationPage() {
 
         <TabsContent value="factures">
           <Card>
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>

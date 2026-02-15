@@ -41,7 +41,7 @@ export default async function AdminDossiersPage({
             {dossiers.length} dossier{dossiers.length > 1 ? "s" : ""} au total
           </p>
         </div>
-        <Button>
+        <Button disabled title="Bientot disponible">
           <Plus className="h-4 w-4 mr-2" />
           Nouveau Dossier
         </Button>

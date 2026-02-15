@@ -417,7 +417,7 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
               <CardTitle className="text-base">Heures enregistrees</CardTitle>
               <AddHeureDialog dossierId={id} />
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -531,7 +531,7 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
         {/* ---- Documents ---- */}
         <TabsContent value="documents">
           <Card>
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>

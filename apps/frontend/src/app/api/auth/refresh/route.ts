@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     const data = await res.json();
     const { access_token, refresh_token: newRefreshToken, expires } = data.data;
 
-    const isSecure = process.env.NODE_ENV === "production";
+    const isSecure = request.nextUrl.protocol === "https:";
     const response = NextResponse.json({ success: true });
 
     response.cookies.set("auth_token", access_token, {

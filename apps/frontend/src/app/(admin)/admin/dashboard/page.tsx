@@ -115,7 +115,7 @@ export default async function AdminDashboardPage() {
               </Link>
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-x-auto">
             {recentDossiers.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
                 Aucun dossier

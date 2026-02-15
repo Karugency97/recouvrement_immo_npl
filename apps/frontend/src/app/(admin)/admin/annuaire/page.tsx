@@ -72,7 +72,7 @@ export default async function AdminAnnuairePage() {
 
         <TabsContent value="syndics">
           <Card>
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -132,7 +132,7 @@ export default async function AdminAnnuairePage() {
 
         <TabsContent value="debiteurs">
           <Card>
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>

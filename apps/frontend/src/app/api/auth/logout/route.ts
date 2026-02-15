@@ -18,12 +18,13 @@ export async function POST(request: NextRequest) {
     // Silently fail — we still want to clear cookies
   }
 
+  const isSecure = request.nextUrl.protocol === "https:";
   const response = NextResponse.json({ success: true });
 
   // Clear cookies
   response.cookies.set("auth_token", "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecure,
     sameSite: "lax",
     path: "/",
     maxAge: 0,
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
 
   response.cookies.set("refresh_token", "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecure,
     sameSite: "lax",
     path: "/",
     maxAge: 0,
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
 
   response.cookies.set("user_role", "", {
     httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecure,
     sameSite: "lax",
     path: "/",
     maxAge: 0,

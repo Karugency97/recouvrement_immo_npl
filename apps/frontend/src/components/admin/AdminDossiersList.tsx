@@ -95,15 +95,23 @@ export function AdminDossiersList({ dossiers, initialSearch = "" }: AdminDossier
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="icon" className="shrink-0">
-              <SlidersHorizontal className="h-4 w-4" />
-            </Button>
+            {(search || statusFilter !== "all" || phaseFilter !== "all") && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                onClick={() => { setSearch(""); setStatusFilter("all"); setPhaseFilter("all"); }}
+                title="Reinitialiser les filtres"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
