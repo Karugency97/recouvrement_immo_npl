@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import {
@@ -11,6 +11,7 @@ import {
   Users,
   Receipt,
   Search,
+  LogOut,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,12 @@ interface AdminSidebarProps {
 
 export function AdminSidebar({ userName, userCompany }: AdminSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+  };
 
   const getInitials = (name: string) =>
     name
@@ -129,6 +136,13 @@ export function AdminSidebar({ userName, userCompany }: AdminSidebarProps) {
             </p>
             <p className="text-xs text-slate-400 truncate">{userCompany}</p>
           </div>
+          <button
+            onClick={handleLogout}
+            title="Se déconnecter"
+            className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800 transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </aside>
