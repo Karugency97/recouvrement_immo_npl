@@ -13,6 +13,7 @@ import {
   Phone,
   Mail,
   Scale,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Timeline } from "@/components/timeline/Timeline";
 import { MessageSender } from "@/components/messaging/MessageSender";
@@ -30,6 +32,8 @@ import { MarkAsReadTrigger } from "@/components/messaging/MarkAsReadTrigger";
 import { AddHeureDialog } from "@/components/admin/AddHeureDialog";
 import { AddNoteDialog } from "@/components/admin/AddNoteDialog";
 import { DossierStatusSelect } from "@/components/admin/DossierStatusSelect";
+import { CreancePaymentDialog } from "@/components/admin/CreancePaymentDialog";
+import { AddRecouvrementDialog } from "@/components/admin/AddRecouvrementDialog";
 import { requireAuth, getAuthToken } from "@/lib/dal";
 import { getDossierById } from "@/lib/api/dossiers";
 import { getCreances } from "@/lib/api/creances";
@@ -100,6 +104,13 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
     (sum, c) => sum + (Number(c.montant) || 0),
     0
   );
+  const totalPayeCreances = creances.reduce(
+    (sum, c) => sum + (Number(c.montant_paye) || 0),
+    0
+  );
+  const montantRecouvre = Number(dossier.montant_recouvre) || 0;
+  const montantDu = totalCreances || Number(dossier.montant_initial) || 0;
+  const progressPercent = montantDu > 0 ? Math.min(100, Math.round((montantRecouvre / montantDu) * 100)) : 0;
 
   // Map evenements to timeline events
   const timelineEvents = evenements.map((e, idx) => ({
@@ -225,6 +236,50 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
 
         {/* ---- Apercu ---- */}
         <TabsContent value="apercu">
+          {/* Recouvrement summary */}
+          <Card className="mb-6">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-emerald-600" />
+                Recouvrement
+              </CardTitle>
+              <AddRecouvrementDialog
+                dossierId={id}
+                montantTotal={montantDu}
+                montantDejaRecouvre={montantRecouvre}
+              />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <p className="text-xs text-muted-foreground">Total du</p>
+                  <p className="text-lg font-semibold text-red-600">
+                    {formatCurrency(montantDu)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Recouvre</p>
+                  <p className="text-lg font-semibold text-emerald-600">
+                    {formatCurrency(montantRecouvre)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Restant</p>
+                  <p className="text-lg font-semibold">
+                    {formatCurrency(Math.max(0, montantDu - montantRecouvre))}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Progression</span>
+                  <span>{progressPercent}%</span>
+                </div>
+                <Progress value={progressPercent} className="h-2.5" />
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Dossier info */}
             <Card>
@@ -262,24 +317,56 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
                   </div>
                 </div>
                 <Separator />
-                {/* Creances breakdown */}
+                {/* Creances breakdown with payment info */}
                 <div>
                   <p className="text-xs text-muted-foreground mb-2">Creances</p>
                   {creances.length > 0 ? (
                     <div className="space-y-2">
-                      {creances.map((c, idx) => (
-                        <div
-                          key={(c.id as string) || idx}
-                          className="flex justify-between text-sm"
-                        >
-                          <span className="text-muted-foreground">
-                            {CREANCE_TYPE_LABELS[(c.type as string)] || (c.type as string) || "Creance"}
-                          </span>
-                          <span className="font-medium">
-                            {formatCurrency(Number(c.montant) || 0)}
-                          </span>
-                        </div>
-                      ))}
+                      {creances.map((c, idx) => {
+                        const cMontant = Number(c.montant) || 0;
+                        const cPaye = Number(c.montant_paye) || 0;
+                        const cStatut = (c.statut as string) || "du";
+                        return (
+                          <div
+                            key={(c.id as string) || idx}
+                            className="flex items-center justify-between text-sm gap-2"
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className="text-muted-foreground truncate">
+                                {CREANCE_TYPE_LABELS[(c.type as string)] || (c.type as string) || "Creance"}
+                              </span>
+                              <span
+                                className={cn(
+                                  "rounded-full px-2 py-0.5 text-[10px] font-medium border shrink-0",
+                                  cStatut === "paye" && "bg-emerald-100 text-emerald-700 border-emerald-200",
+                                  cStatut === "partiellement_paye" && "bg-amber-100 text-amber-700 border-amber-200",
+                                  cStatut === "du" && "bg-red-100 text-red-700 border-red-200",
+                                  cStatut === "conteste" && "bg-purple-100 text-purple-700 border-purple-200",
+                                )}
+                              >
+                                {cStatut === "paye" ? "Paye" : cStatut === "partiellement_paye" ? "Partiel" : cStatut === "conteste" ? "Conteste" : "Du"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div className="text-right">
+                                <span className="font-medium">{formatCurrency(cMontant)}</span>
+                                {cPaye > 0 && (
+                                  <span className="text-emerald-600 text-xs ml-1">
+                                    ({formatCurrency(cPaye)} paye)
+                                  </span>
+                                )}
+                              </div>
+                              <CreancePaymentDialog
+                                creanceId={c.id as string}
+                                dossierId={id}
+                                creanceLibelle={CREANCE_TYPE_LABELS[(c.type as string)] || (c.type as string) || "Creance"}
+                                montantTotal={cMontant}
+                                montantDejaPaye={cPaye}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                       <Separator />
                       <div className="flex justify-between text-sm font-semibold">
                         <span>Total</span>
@@ -289,6 +376,14 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
                           )}
                         </span>
                       </div>
+                      {totalPayeCreances > 0 && (
+                        <div className="flex justify-between text-sm font-semibold">
+                          <span>Total paye</span>
+                          <span className="text-emerald-600">
+                            {formatCurrency(totalPayeCreances)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="flex justify-between text-sm font-semibold">

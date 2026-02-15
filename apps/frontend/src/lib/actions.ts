@@ -7,7 +7,7 @@ import { sendMessage, markMessagesAsRead } from "@/lib/api/messages";
 import { updateTache, createTache } from "@/lib/api/taches";
 import { createNote } from "@/lib/api/notes";
 import { createHeure } from "@/lib/api/heures";
-import { updateDossier } from "@/lib/api/dossiers";
+import { updateDossier, getDossierById } from "@/lib/api/dossiers";
 import { updateSyndic } from "@/lib/api/syndics";
 import { profileSchema } from "@/lib/validations/settings-schema";
 import { syndicProfileSchema } from "@/lib/validations/settings-schema";
@@ -16,6 +16,8 @@ import { messageSchema } from "@/lib/validations/message-schema";
 import { taskSchema } from "@/lib/validations/task-schema";
 import { noteSchema } from "@/lib/validations/note-schema";
 import { heureSchema } from "@/lib/validations/heure-schema";
+import { creancePaymentSchema, recouvrementSchema } from "@/lib/validations/recouvrement-schema";
+import { getCreanceById, getCreances, updateCreance } from "@/lib/api/creances";
 
 const DIRECTUS_URL = process.env.NEXT_PUBLIC_DIRECTUS_URL!;
 
@@ -281,5 +283,100 @@ export async function markMessagesAsReadAction(dossierId: string) {
     return { success: true };
   } catch {
     return { error: "Erreur lors du marquage des messages" };
+  }
+}
+
+export async function updateCreancePaymentAction(_prev: unknown, formData: FormData) {
+  const token = await getAuthToken();
+  if (!token) return { error: "Non authentifie" };
+
+  const raw = {
+    creance_id: formData.get("creance_id") as string,
+    dossier_id: formData.get("dossier_id") as string,
+    montant_paye: Number(formData.get("montant_paye")),
+  };
+
+  const result = creancePaymentSchema.safeParse(raw);
+  if (!result.success) return { error: "Donnees invalides" };
+
+  try {
+    // Get current creance to validate max amount
+    const creance = await getCreanceById(token, result.data.creance_id) as Record<string, unknown>;
+    const montantTotal = Number(creance.montant) || 0;
+
+    if (result.data.montant_paye > montantTotal) {
+      return { error: `Le montant paye ne peut pas depasser ${montantTotal}` };
+    }
+
+    // Auto-calculate statut
+    let statut: string;
+    if (result.data.montant_paye <= 0) {
+      statut = "du";
+    } else if (result.data.montant_paye >= montantTotal) {
+      statut = "paye";
+    } else {
+      statut = "partiellement_paye";
+    }
+
+    // Update creance
+    await updateCreance(token, result.data.creance_id, {
+      montant_paye: result.data.montant_paye,
+      statut,
+    });
+
+    // Recalculate dossier montant_recouvre from all creances
+    const allCreances = await getCreances(token, result.data.dossier_id) as Record<string, unknown>[];
+    const totalPaye = allCreances.reduce((sum, c) => {
+      // Use updated value for the current creance
+      if ((c.id as string) === result.data.creance_id) {
+        return sum + result.data.montant_paye;
+      }
+      return sum + (Number(c.montant_paye) || 0);
+    }, 0);
+
+    await updateDossier(token, result.data.dossier_id, { montant_recouvre: totalPaye });
+
+    revalidatePath(`/admin/dossiers/${result.data.dossier_id}`);
+    revalidatePath(`/dossiers/${result.data.dossier_id}`);
+    revalidatePath("/admin/dossiers");
+    revalidatePath("/dossiers");
+    revalidatePath("/admin");
+    revalidatePath("/");
+    return { success: true };
+  } catch {
+    return { error: "Erreur lors de la mise a jour du paiement" };
+  }
+}
+
+export async function addRecouvrementAction(_prev: unknown, formData: FormData) {
+  const token = await getAuthToken();
+  if (!token) return { error: "Non authentifie" };
+
+  const raw = {
+    dossier_id: formData.get("dossier_id") as string,
+    montant: Number(formData.get("montant")),
+    commentaire: (formData.get("commentaire") as string) || undefined,
+  };
+
+  const result = recouvrementSchema.safeParse(raw);
+  if (!result.success) return { error: "Donnees invalides" };
+
+  try {
+    // Get current dossier to add to existing montant_recouvre
+    const dossier = await getDossierById(token, result.data.dossier_id) as Record<string, unknown>;
+    const currentRecouvre = Number(dossier.montant_recouvre) || 0;
+    const newRecouvre = currentRecouvre + result.data.montant;
+
+    await updateDossier(token, result.data.dossier_id, { montant_recouvre: newRecouvre });
+
+    revalidatePath(`/admin/dossiers/${result.data.dossier_id}`);
+    revalidatePath(`/dossiers/${result.data.dossier_id}`);
+    revalidatePath("/admin/dossiers");
+    revalidatePath("/dossiers");
+    revalidatePath("/admin");
+    revalidatePath("/");
+    return { success: true };
+  } catch {
+    return { error: "Erreur lors de l'enregistrement du recouvrement" };
   }
 }

@@ -1,4 +1,4 @@
-import { createDirectus, rest, staticToken, readItems, createItem, updateItem, deleteItem } from "@directus/sdk";
+import { createDirectus, rest, staticToken, readItems, readItem, createItem, updateItem, deleteItem } from "@directus/sdk";
 
 const DIRECTUS_URL = process.env.NEXT_PUBLIC_DIRECTUS_URL!;
 
@@ -30,4 +30,9 @@ export async function updateCreance(token: string, id: string, data: Record<stri
 export async function deleteCreance(token: string, id: string) {
   const client = getClient(token);
   return client.request(deleteItem("creances", id));
+}
+
+export async function getCreanceById(token: string, id: string) {
+  const client = getClient(token);
+  return client.request(readItem("creances", id, { fields: ["*"] }));
 }
