@@ -9,6 +9,8 @@ interface AdminLayoutWrapperProps {
   userName: string;
   userCompany: string;
   unreadCount?: number;
+  activeDossiers?: number;
+  tauxRecouvrement?: number;
   children: React.ReactNode;
 }
 
@@ -16,6 +18,8 @@ export function AdminLayoutWrapper({
   userName,
   userCompany,
   unreadCount = 0,
+  activeDossiers = 0,
+  tauxRecouvrement = 0,
   children,
 }: AdminLayoutWrapperProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -27,6 +31,8 @@ export function AdminLayoutWrapper({
         userName={userName}
         userCompany={userCompany}
         unreadCount={unreadCount}
+        activeDossiers={activeDossiers}
+        tauxRecouvrement={tauxRecouvrement}
         mobileOpen={mobileOpen}
         onMobileOpenChange={setMobileOpen}
       />

@@ -49,6 +49,8 @@ interface AdminSidebarProps {
   userName: string;
   userCompany: string;
   unreadCount?: number;
+  activeDossiers?: number;
+  tauxRecouvrement?: number;
   mobileOpen?: boolean;
   onMobileOpenChange?: (open: boolean) => void;
 }
@@ -57,6 +59,8 @@ export function AdminSidebar({
   userName,
   userCompany,
   unreadCount = 0,
+  activeDossiers = 0,
+  tauxRecouvrement = 0,
   mobileOpen = false,
   onMobileOpenChange,
 }: AdminSidebarProps) {
@@ -139,11 +143,11 @@ export function AdminSidebar({
         <p className="text-xs text-slate-400 mb-2">Ce mois</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-xl font-semibold text-slate-100">--</p>
+            <p className="text-xl font-semibold text-slate-100">{activeDossiers}</p>
             <p className="text-xs text-slate-400">Dossiers actifs</p>
           </div>
           <div>
-            <p className="text-xl font-semibold text-emerald-400">--%</p>
+            <p className="text-xl font-semibold text-emerald-400">{tauxRecouvrement}%</p>
             <p className="text-xs text-slate-400">Taux recouvrement</p>
           </div>
         </div>
