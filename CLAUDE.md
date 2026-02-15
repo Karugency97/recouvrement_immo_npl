@@ -11,6 +11,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Backend**: Directus (hosted on VPS via Coolify, PostgreSQL) — headless CMS providing REST API, auth, file storage, RBAC
 - **Frontend**: Next.js 15 (App Router) + React 19 + Tailwind CSS + ShadCN UI
 - **Monorepo**: pnpm workspaces + Turborepo
+- **Deployment**: Coolify on VPS (31.97.156.140) — auto-deploy on push to `main` via GitHub webhook
+- **Production URL**: https://immo.nplavocat.com
 
 ```
 apps/frontend/     → Next.js 15 frontend
