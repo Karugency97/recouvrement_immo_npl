@@ -1,6 +1,5 @@
 import { requireAuth, getAuthToken } from "@/lib/dal";
-import { getSyndicByUserId } from "@/lib/api/syndics";
-import { getConversationsForSyndic } from "@/lib/api/messages";
+import { getAllConversations } from "@/lib/api/messages";
 import { ConversationList, type Conversation } from "@/components/messaging/ConversationList";
 
 interface MessageRecord {
@@ -12,6 +11,7 @@ interface MessageRecord {
     id: string;
     reference: string;
     debiteur_id: { nom: string; prenom: string } | null;
+    syndic_id: { raison_sociale: string } | null;
   } | null;
   expediteur_id: {
     id: string;
@@ -20,16 +20,11 @@ interface MessageRecord {
   } | null;
 }
 
-export default async function MessageriePage() {
+export default async function AdminMessageriePage() {
   const user = await requireAuth();
   const token = (await getAuthToken())!;
 
-  const syndic = await getSyndicByUserId(token, user.id).catch(() => null);
-  const syndicId = (syndic as Record<string, unknown> | null)?.id as string;
-
-  const messagesRaw = syndicId
-    ? ((await getConversationsForSyndic(token, syndicId).catch(() => [])) as unknown as MessageRecord[])
-    : [];
+  const messagesRaw = (await getAllConversations(token).catch(() => [])) as unknown as MessageRecord[];
 
   // Group by dossier
   const grouped = messagesRaw.reduce<
@@ -37,6 +32,7 @@ export default async function MessageriePage() {
       dossierId: string;
       reference: string;
       debiteur: string;
+      syndic: string;
       messages: MessageRecord[];
       lastMessage: MessageRecord | null;
       unreadCount: number;
@@ -53,6 +49,7 @@ export default async function MessageriePage() {
         debiteur: debiteur
           ? `${debiteur.prenom || ""} ${debiteur.nom || ""}`.trim()
           : "—",
+        syndic: dossier.syndic_id?.raison_sociale || "—",
         messages: [],
         lastMessage: null,
         unreadCount: 0,
@@ -84,6 +81,7 @@ export default async function MessageriePage() {
       dossierId: g.dossierId,
       reference: g.reference,
       debiteur: g.debiteur,
+      syndic: g.syndic,
       unreadCount: g.unreadCount,
       lastMessage: g.lastMessage
         ? {
@@ -103,13 +101,14 @@ export default async function MessageriePage() {
           Messagerie
         </h1>
         <p className="text-muted-foreground mt-1">
-          Echangez avec votre avocat sur vos dossiers en cours
+          Tous les echanges avec les syndics sur l&apos;ensemble des dossiers
         </p>
       </div>
 
       <ConversationList
         conversations={conversations}
-        basePath="/dossiers"
+        basePath="/admin/dossiers"
+        showSyndic
       />
     </div>
   );

@@ -26,13 +26,14 @@ const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Tableau de bord" },
   { href: "/dossiers", icon: FolderOpen, label: "Mes Dossiers" },
   { href: "/documents", icon: FileText, label: "Documents" },
-  { href: "/messagerie", icon: MessageSquare, label: "Messagerie", badge: 2 },
+  { href: "/messagerie", icon: MessageSquare, label: "Messagerie", badgeKey: "messagerie" as const },
   { href: "/parametres", icon: Settings, label: "Parametres" },
 ];
 
 interface ClientSidebarProps {
   userName: string;
   userCompany: string;
+  unreadCount?: number;
   mobileOpen?: boolean;
   onMobileOpenChange?: (open: boolean) => void;
 }
@@ -40,6 +41,7 @@ interface ClientSidebarProps {
 export function ClientSidebar({
   userName,
   userCompany,
+  unreadCount = 0,
   mobileOpen = false,
   onMobileOpenChange,
 }: ClientSidebarProps) {
@@ -108,9 +110,9 @@ export function ClientSidebar({
             >
               <item.icon className="h-5 w-5" />
               <span className="flex-1">{item.label}</span>
-              {item.badge && (
+              {item.badgeKey === "messagerie" && unreadCount > 0 && (
                 <Badge className="bg-red-500 text-slate-100 hover:bg-red-500 px-2 py-0.5 text-xs">
-                  {item.badge}
+                  {unreadCount}
                 </Badge>
               )}
             </Link>

@@ -26,6 +26,7 @@ import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Timeline } from "@/components/timeline/Timeline";
 import { MessageSender } from "@/components/messaging/MessageSender";
+import { MarkAsReadTrigger } from "@/components/messaging/MarkAsReadTrigger";
 import { AddHeureDialog } from "@/components/admin/AddHeureDialog";
 import { AddNoteDialog } from "@/components/admin/AddNoteDialog";
 import { DossierStatusSelect } from "@/components/admin/DossierStatusSelect";
@@ -596,6 +597,7 @@ export default async function AdminDossierDetailPage({ params }: PageProps) {
 
         {/* ---- Messages ---- */}
         <TabsContent value="messages">
+          <MarkAsReadTrigger dossierId={id} />
           <MessageSender
             dossierId={id}
             messages={formattedMessages}

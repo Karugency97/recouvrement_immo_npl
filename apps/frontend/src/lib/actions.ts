@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createDirectus, rest, staticToken, updateMe } from "@directus/sdk";
 import { getAuthToken, getCurrentUser } from "@/lib/dal";
-import { sendMessage } from "@/lib/api/messages";
+import { sendMessage, markMessagesAsRead } from "@/lib/api/messages";
 import { updateTache, createTache } from "@/lib/api/taches";
 import { createNote } from "@/lib/api/notes";
 import { createHeure } from "@/lib/api/heures";
@@ -262,5 +262,24 @@ export async function updateDossierStatusAction(_prev: unknown, formData: FormDa
     return { success: true };
   } catch {
     return { error: "Erreur lors du changement de statut" };
+  }
+}
+
+export async function markMessagesAsReadAction(dossierId: string) {
+  const token = await getAuthToken();
+  if (!token) return { error: "Non authentifie" };
+
+  const user = await getCurrentUser();
+  if (!user) return { error: "Non authentifie" };
+
+  try {
+    await markMessagesAsRead(token, dossierId, user.id);
+    revalidatePath("/messagerie");
+    revalidatePath("/admin/messagerie");
+    revalidatePath(`/dossiers/${dossierId}`);
+    revalidatePath(`/admin/dossiers/${dossierId}`);
+    return { success: true };
+  } catch {
+    return { error: "Erreur lors du marquage des messages" };
   }
 }

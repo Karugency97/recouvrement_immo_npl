@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge, DocumentTypeBadge } from "@/components/shared/StatusBadge";
 import { Timeline } from "@/components/timeline/Timeline";
 import { MessageSender } from "@/components/messaging/MessageSender";
+import { MarkAsReadTrigger } from "@/components/messaging/MarkAsReadTrigger";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -406,6 +407,7 @@ export default async function DossierDetailPage({
 
         {/* ----- Tab: Messages ----- */}
         <TabsContent value="messages" className="mt-4">
+          <MarkAsReadTrigger dossierId={id} />
           <MessageSender
             dossierId={id}
             messages={mappedMessages}

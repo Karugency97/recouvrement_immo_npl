@@ -8,12 +8,14 @@ import { MobileHeader } from "@/components/layout/MobileHeader";
 interface AdminLayoutWrapperProps {
   userName: string;
   userCompany: string;
+  unreadCount?: number;
   children: React.ReactNode;
 }
 
 export function AdminLayoutWrapper({
   userName,
   userCompany,
+  unreadCount = 0,
   children,
 }: AdminLayoutWrapperProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -24,6 +26,7 @@ export function AdminLayoutWrapper({
       <AdminSidebar
         userName={userName}
         userCompany={userCompany}
+        unreadCount={unreadCount}
         mobileOpen={mobileOpen}
         onMobileOpenChange={setMobileOpen}
       />

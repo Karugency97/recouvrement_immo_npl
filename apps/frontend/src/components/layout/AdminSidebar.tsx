@@ -9,10 +9,12 @@ import {
   FolderKanban,
   CalendarCheck,
   Users,
+  MessageSquare,
   Receipt,
   Search,
   LogOut,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import {
@@ -39,12 +41,14 @@ const adminNavItems = [
     label: "Taches & Audiences",
   },
   { href: "/admin/annuaire", icon: Users, label: "Annuaire" },
+  { href: "/admin/messagerie", icon: MessageSquare, label: "Messagerie", badgeKey: "messagerie" as const },
   { href: "/admin/facturation", icon: Receipt, label: "Facturation" },
 ];
 
 interface AdminSidebarProps {
   userName: string;
   userCompany: string;
+  unreadCount?: number;
   mobileOpen?: boolean;
   onMobileOpenChange?: (open: boolean) => void;
 }
@@ -52,6 +56,7 @@ interface AdminSidebarProps {
 export function AdminSidebar({
   userName,
   userCompany,
+  unreadCount = 0,
   mobileOpen = false,
   onMobileOpenChange,
 }: AdminSidebarProps) {
@@ -118,7 +123,12 @@ export function AdminSidebar({
               )}
             >
               <item.icon className="h-5 w-5" />
-              <span>{item.label}</span>
+              <span className="flex-1">{item.label}</span>
+              {"badgeKey" in item && item.badgeKey === "messagerie" && unreadCount > 0 && (
+                <Badge className="bg-red-500 text-slate-100 hover:bg-red-500 px-2 py-0.5 text-xs">
+                  {unreadCount}
+                </Badge>
+              )}
             </Link>
           );
         })}

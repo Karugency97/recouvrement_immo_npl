@@ -8,12 +8,14 @@ import { MobileHeader } from "@/components/layout/MobileHeader";
 interface ClientLayoutWrapperProps {
   userName: string;
   userCompany: string;
+  unreadCount?: number;
   children: React.ReactNode;
 }
 
 export function ClientLayoutWrapper({
   userName,
   userCompany,
+  unreadCount = 0,
   children,
 }: ClientLayoutWrapperProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -24,6 +26,7 @@ export function ClientLayoutWrapper({
       <ClientSidebar
         userName={userName}
         userCompany={userCompany}
+        unreadCount={unreadCount}
         mobileOpen={mobileOpen}
         onMobileOpenChange={setMobileOpen}
       />
