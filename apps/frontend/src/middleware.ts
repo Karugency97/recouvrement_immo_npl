@@ -33,6 +33,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Role-based route protection
+  const userRole = request.cookies.get("user_role")?.value;
+  const clientRoutes = ["/dashboard", "/dossiers", "/documents", "/messagerie", "/parametres"];
+
+  if (userRole === "syndic" && pathname.startsWith("/admin")) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  if (
+    (userRole === "admin" || userRole === "avocat") &&
+    clientRoutes.some((r) => pathname === r || pathname.startsWith(`${r}/`))
+  ) {
+    return NextResponse.redirect(new URL("/admin/dashboard", request.url));
+  }
+
   return NextResponse.next();
 }
 
@@ -77,6 +92,29 @@ async function tryRefreshAndContinue(
       path: "/",
       maxAge: 7 * 24 * 60 * 60,
     });
+
+    // Re-fetch user role after token refresh
+    try {
+      const meRes = await fetch(`${DIRECTUS_URL}/users/me?fields=role.name`, {
+        headers: { Authorization: `Bearer ${access_token}` },
+      });
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        const roleName = (meData.data?.role?.name || "").toLowerCase();
+        let userRole = "syndic";
+        if (roleName.includes("admin") || roleName.includes("administrateur")) userRole = "admin";
+        else if (roleName.includes("avocat")) userRole = "avocat";
+        response.cookies.set("user_role", userRole, {
+          httpOnly: false,
+          secure: isSecure,
+          sameSite: "lax",
+          path: "/",
+          maxAge: 7 * 24 * 60 * 60,
+        });
+      }
+    } catch {
+      // Keep existing role cookie
+    }
 
     return response;
   } catch {

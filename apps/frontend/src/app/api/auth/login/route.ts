@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 const DIRECTUS_URL = process.env.NEXT_PUBLIC_DIRECTUS_URL!;
 
+function getUserRoleFromName(roleName: string): "admin" | "avocat" | "syndic" {
+  const lower = roleName.toLowerCase();
+  if (lower.includes("admin") || lower.includes("administrateur")) return "admin";
+  if (lower.includes("avocat")) return "avocat";
+  return "syndic";
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
@@ -24,6 +31,20 @@ export async function POST(request: NextRequest) {
     const data = await res.json();
     const { access_token, refresh_token, expires } = data.data;
 
+    // Fetch user role for middleware-level route protection
+    let userRole = "syndic";
+    try {
+      const meRes = await fetch(`${DIRECTUS_URL}/users/me?fields=role.name`, {
+        headers: { Authorization: `Bearer ${access_token}` },
+      });
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        userRole = getUserRoleFromName(meData.data?.role?.name || "");
+      }
+    } catch {
+      // Default to syndic (most restrictive) if role fetch fails
+    }
+
     const isSecure = request.nextUrl.protocol === "https:";
     const response = NextResponse.json({ success: true });
 
@@ -43,6 +64,15 @@ export async function POST(request: NextRequest) {
       sameSite: "lax",
       path: "/",
       maxAge: 7 * 24 * 60 * 60, // 7 days
+    });
+
+    // Set user role cookie (non-httpOnly so middleware can read it)
+    response.cookies.set("user_role", userRole, {
+      httpOnly: false,
+      secure: isSecure,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60,
     });
 
     return response;

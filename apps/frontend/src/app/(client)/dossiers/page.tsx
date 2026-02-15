@@ -1,16 +1,10 @@
-import { Plus, ArrowRight, Search, Filter, FolderOpen } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { EmptyState } from "@/components/shared/EmptyState";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { formatCurrency } from "@/lib/utils/format-currency";
-import { formatDate } from "@/lib/utils/format-date";
 import { requireAuth, getAuthToken, getUserRole } from "@/lib/dal";
 import { getDossiers } from "@/lib/api/dossiers";
 import { getSyndicByUserId } from "@/lib/api/syndics";
+import { ClientDossiersList } from "@/components/client/ClientDossiersList";
 
 /* -------------------------------------------------------------------------- */
 /*  Page component (Server Component — async)                                 */
@@ -31,7 +25,23 @@ export default async function DossiersPage() {
     : getDossiers(token)
   ).catch(() => []);
 
-  const dossiers = dossiersRaw as Record<string, unknown>[];
+  const dossiers = (dossiersRaw as Record<string, unknown>[]).map((d) => {
+    const debiteur = d.debiteur_id as Record<string, unknown> | null;
+    const copro = d.copropriete_id as Record<string, unknown> | null;
+    return {
+      id: d.id as string,
+      reference: (d.reference as string) || "—",
+      statut: (d.statut as string) || "nouveau",
+      montant_initial: Number(d.montant_initial) || 0,
+      montant_recouvre: Number(d.montant_recouvre) || 0,
+      debiteur_nom: debiteur
+        ? `${(debiteur.prenom as string) || ""} ${(debiteur.nom as string) || ""}`.trim()
+        : "—",
+      copropriete_nom: (copro?.nom as string) || "—",
+      lot_description: (d.lot_description as string) || "",
+      date_created: (d.date_created as string) || "",
+    };
+  });
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -53,112 +63,7 @@ export default async function DossiersPage() {
         </Button>
       </div>
 
-      {/* Search & filter bar */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher par reference, debiteur, copropriete..."
-            className="pl-9"
-          />
-        </div>
-        <Button variant="outline" className="shrink-0">
-          <Filter className="h-4 w-4 mr-2" />
-          Filtrer
-        </Button>
-      </div>
-
-      {/* Dossier list */}
-      {dossiers.length === 0 ? (
-        <Card>
-          <CardContent className="p-6">
-            <EmptyState
-              icon={FolderOpen}
-              title="Aucun dossier"
-              description="Vous n'avez pas encore de dossier de recouvrement. Commencez par en creer un."
-              action={
-                <Button asChild>
-                  <Link href="/dossiers/nouveau">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Creer un dossier
-                  </Link>
-                </Button>
-              }
-            />
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {dossiers.map((dossier) => {
-            const debiteur = dossier.debiteur_id as Record<string, unknown> | null;
-            const copro = dossier.copropriete_id as Record<string, unknown> | null;
-            const debiteurLabel = debiteur
-              ? `${debiteur.prenom || ""} ${debiteur.nom || ""}`.trim()
-              : "—";
-            const coproLabel = (copro?.nom as string) || "—";
-            const montantTotal = Number(dossier.montant_initial) || 0;
-            const montantRecouvre = Number(dossier.montant_recouvre) || 0;
-            const pourcentage =
-              montantTotal > 0
-                ? Math.round((montantRecouvre / montantTotal) * 100)
-                : 0;
-
-            return (
-              <Link key={dossier.id as string} href={`/dossiers/${dossier.id}`}>
-                <Card className="card-hover group cursor-pointer">
-                  <CardContent className="p-5">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      {/* Left: reference, debiteur, copropriete */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-semibold text-foreground">
-                            {(dossier.reference as string) || "—"}
-                          </span>
-                          <StatusBadge status={(dossier.statut as string) || "nouveau"} />
-                        </div>
-                        <p className="text-sm text-foreground mt-1">
-                          {debiteurLabel}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {coproLabel}
-                          {(dossier.lot_description as string) ? ` — ${dossier.lot_description}` : ""}
-                        </p>
-                      </div>
-
-                      {/* Right: amounts + arrow */}
-                      <div className="flex items-center gap-4 sm:text-right shrink-0">
-                        <div>
-                          <p className="text-sm font-semibold text-foreground">
-                            {formatCurrency(montantTotal)}
-                          </p>
-                          <p
-                            className={cn(
-                              "text-xs mt-0.5",
-                              pourcentage === 100
-                                ? "text-emerald-600"
-                                : "text-muted-foreground"
-                            )}
-                          >
-                            {pourcentage > 0
-                              ? `${formatCurrency(montantRecouvre)} recouvre (${pourcentage}%)`
-                              : "Aucun recouvrement"}
-                          </p>
-                          {(dossier.date_created as string) ? (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Cree le {formatDate(dossier.date_created as string)}
-                            </p>
-                          ) : null}
-                        </div>
-                        <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
-        </div>
-      )}
+      <ClientDossiersList dossiers={dossiers} />
     </div>
   );
 }

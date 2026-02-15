@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireAuth, getUserRole } from "@/lib/dal";
-import { AdminSidebar } from "@/components/layout/AdminSidebar";
-import { Header } from "@/components/layout/Header";
+import { AdminLayoutWrapper } from "@/components/layout/AdminLayoutWrapper";
 
 export default async function AdminLayout({
   children,
@@ -20,11 +19,9 @@ export default async function AdminLayout({
 
   return (
     <div className="flex min-h-screen bg-background admin-theme">
-      <AdminSidebar userName={userName} userCompany="Cabinet" />
-      <main className="flex-1 ml-[280px]">
-        <Header userName={userName} variant="admin" />
-        <div className="p-6">{children}</div>
-      </main>
+      <AdminLayoutWrapper userName={userName} userCompany="Cabinet">
+        {children}
+      </AdminLayoutWrapper>
     </div>
   );
 }

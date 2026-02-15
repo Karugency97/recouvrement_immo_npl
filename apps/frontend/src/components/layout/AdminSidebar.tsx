@@ -15,6 +15,11 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 const adminNavItems = [
   {
@@ -40,9 +45,16 @@ const adminNavItems = [
 interface AdminSidebarProps {
   userName: string;
   userCompany: string;
+  mobileOpen?: boolean;
+  onMobileOpenChange?: (open: boolean) => void;
 }
 
-export function AdminSidebar({ userName, userCompany }: AdminSidebarProps) {
+export function AdminSidebar({
+  userName,
+  userCompany,
+  mobileOpen = false,
+  onMobileOpenChange,
+}: AdminSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -58,8 +70,12 @@ export function AdminSidebar({ userName, userCompany }: AdminSidebarProps) {
       .join("")
       .toUpperCase();
 
-  return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-[280px] border-r border-slate-800 bg-slate-950 text-slate-100 flex flex-col">
+  const handleNavClick = () => {
+    onMobileOpenChange?.(false);
+  };
+
+  const sidebarContent = (
+    <>
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-800">
         <Image src="/logo.png" alt="ImmoJuris" width={40} height={40} className="rounded-lg" />
@@ -93,6 +109,7 @@ export function AdminSidebar({ userName, userCompany }: AdminSidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={handleNavClick}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
@@ -145,6 +162,28 @@ export function AdminSidebar({ userName, userCompany }: AdminSidebarProps) {
           </button>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex fixed left-0 top-0 z-40 h-screen w-[280px] border-r border-slate-800 bg-slate-950 text-slate-100 flex-col">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile drawer */}
+      <Sheet open={mobileOpen} onOpenChange={onMobileOpenChange}>
+        <SheetContent
+          side="left"
+          className="w-[280px] p-0 bg-slate-950 text-slate-100 border-slate-800 [&>button]:text-slate-400 [&>button]:hover:text-slate-100"
+        >
+          <SheetTitle className="sr-only">Menu de navigation</SheetTitle>
+          <div className="flex flex-col h-full">
+            {sidebarContent}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }

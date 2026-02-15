@@ -16,6 +16,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Tableau de bord" },
@@ -28,9 +33,16 @@ const navItems = [
 interface ClientSidebarProps {
   userName: string;
   userCompany: string;
+  mobileOpen?: boolean;
+  onMobileOpenChange?: (open: boolean) => void;
 }
 
-export function ClientSidebar({ userName, userCompany }: ClientSidebarProps) {
+export function ClientSidebar({
+  userName,
+  userCompany,
+  mobileOpen = false,
+  onMobileOpenChange,
+}: ClientSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -46,8 +58,12 @@ export function ClientSidebar({ userName, userCompany }: ClientSidebarProps) {
       .join("")
       .toUpperCase();
 
-  return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-[280px] border-r border-slate-200 bg-slate-900 text-slate-100 flex flex-col">
+  const handleNavClick = () => {
+    onMobileOpenChange?.(false);
+  };
+
+  const sidebarContent = (
+    <>
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-700">
         <Image src="/logo.png" alt="ImmoJuris" width={40} height={40} className="rounded-lg" />
@@ -65,7 +81,7 @@ export function ClientSidebar({ userName, userCompany }: ClientSidebarProps) {
           asChild
           className="w-full bg-slate-100 text-slate-900 hover:bg-slate-200 font-medium"
         >
-          <Link href="/dossiers/nouveau">
+          <Link href="/dossiers/nouveau" onClick={handleNavClick}>
             <Plus className="mr-2 h-4 w-4" />
             Nouveau Dossier
           </Link>
@@ -82,6 +98,7 @@ export function ClientSidebar({ userName, userCompany }: ClientSidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={handleNavClick}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
@@ -124,6 +141,28 @@ export function ClientSidebar({ userName, userCompany }: ClientSidebarProps) {
           </button>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex fixed left-0 top-0 z-40 h-screen w-[280px] border-r border-slate-200 bg-slate-900 text-slate-100 flex-col">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile drawer */}
+      <Sheet open={mobileOpen} onOpenChange={onMobileOpenChange}>
+        <SheetContent
+          side="left"
+          className="w-[280px] p-0 bg-slate-900 text-slate-100 border-slate-700 [&>button]:text-slate-400 [&>button]:hover:text-slate-100"
+        >
+          <SheetTitle className="sr-only">Menu de navigation</SheetTitle>
+          <div className="flex flex-col h-full">
+            {sidebarContent}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
