@@ -38,10 +38,11 @@ interface Dossier {
 
 interface AdminDossiersListProps {
   dossiers: Dossier[];
+  initialSearch?: string;
 }
 
-export function AdminDossiersList({ dossiers }: AdminDossiersListProps) {
-  const [search, setSearch] = useState("");
+export function AdminDossiersList({ dossiers, initialSearch = "" }: AdminDossiersListProps) {
+  const [search, setSearch] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState("all");
   const [phaseFilter, setPhaseFilter] = useState("all");
 

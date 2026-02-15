@@ -10,7 +10,12 @@ import { ClientDossiersList } from "@/components/client/ClientDossiersList";
 /*  Page component (Server Component — async)                                 */
 /* -------------------------------------------------------------------------- */
 
-export default async function DossiersPage() {
+export default async function DossiersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
   const user = await requireAuth();
   const token = (await getAuthToken())!;
   const role = getUserRole(user);
@@ -63,7 +68,7 @@ export default async function DossiersPage() {
         </Button>
       </div>
 
-      <ClientDossiersList dossiers={dossiers} />
+      <ClientDossiersList dossiers={dossiers} initialSearch={q || ""} />
     </div>
   );
 }

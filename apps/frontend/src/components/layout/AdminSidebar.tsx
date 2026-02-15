@@ -98,13 +98,27 @@ export function AdminSidebar({
 
       {/* Search */}
       <div className="px-4 py-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-          <Input
-            placeholder="Rechercher un dossier..."
-            className="pl-9 bg-slate-900 border-slate-800 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-indigo-500/20"
-          />
-        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const form = e.currentTarget;
+            const input = form.querySelector("input") as HTMLInputElement;
+            const q = input.value.trim();
+            if (q) {
+              router.push(`/admin/dossiers?q=${encodeURIComponent(q)}`);
+              onMobileOpenChange?.(false);
+              input.value = "";
+            }
+          }}
+        >
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <Input
+              placeholder="Rechercher un dossier..."
+              className="pl-9 bg-slate-900 border-slate-800 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-indigo-500/20"
+            />
+          </div>
+        </form>
       </div>
 
       {/* Navigation */}

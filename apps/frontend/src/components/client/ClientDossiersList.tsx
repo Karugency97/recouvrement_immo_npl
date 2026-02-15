@@ -33,10 +33,11 @@ interface ClientDossier {
 
 interface ClientDossiersListProps {
   dossiers: ClientDossier[];
+  initialSearch?: string;
 }
 
-export function ClientDossiersList({ dossiers }: ClientDossiersListProps) {
-  const [search, setSearch] = useState("");
+export function ClientDossiersList({ dossiers, initialSearch = "" }: ClientDossiersListProps) {
+  const [search, setSearch] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState("all");
 
   const filtered = useMemo(() => {

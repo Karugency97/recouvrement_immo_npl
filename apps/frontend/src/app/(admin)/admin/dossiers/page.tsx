@@ -4,9 +4,14 @@ import { requireAuth, getAuthToken } from "@/lib/dal";
 import { getDossiers } from "@/lib/api/dossiers";
 import { AdminDossiersList } from "@/components/admin/AdminDossiersList";
 
-export default async function AdminDossiersPage() {
+export default async function AdminDossiersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   await requireAuth();
   const token = (await getAuthToken())!;
+  const { q } = await searchParams;
 
   const dossiersRaw = (await getDossiers(token).catch(() => [])) as Record<string, unknown>[];
 
@@ -42,7 +47,7 @@ export default async function AdminDossiersPage() {
         </Button>
       </div>
 
-      <AdminDossiersList dossiers={dossiers} />
+      <AdminDossiersList dossiers={dossiers} initialSearch={q || ""} />
     </div>
   );
 }
