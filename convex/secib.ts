@@ -1,10 +1,23 @@
 "use node";
 
 import { action, ActionCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
 const SECIB_BASE_URL =
   process.env.SECIB_GATEWAY_BASE_URL ?? "https://apisecib.nplavocat.com/api/v1";
+
+// Role unions kept in sync with convex/schema.ts users.role
+type UserRole =
+  | "npl_admin"
+  | "npl_assistant"
+  | "npl_avocat"
+  | "syndic_admin"
+  | "syndic_gestionnaire";
+
+const NPL_ROLES = ["npl_admin", "npl_assistant", "npl_avocat"] as const;
+const SYNDIC_ROLES = ["syndic_admin", "syndic_gestionnaire"] as const;
+const ALL_ROLES = [...NPL_ROLES, ...SYNDIC_ROLES] as const;
 
 function secibHeaders(): HeadersInit {
   const apiKey = process.env.SECIB_GATEWAY_API_KEY;
@@ -19,19 +32,43 @@ function secibHeaders(): HeadersInit {
   };
 }
 
-// Auth gate. SECIB data is confidential (secret professionnel RIN, art. 226-13 CP)
-// — no anonymous access allowed. Authentication is provided by Logto NPL via
-// the JWT bearer passed by the frontend (see convex/auth.config.ts).
-// CLI calls via `npx convex run` bypass this through the admin key, which is
-// fine for ops/debug from a trusted machine.
-async function requireAuthenticatedUser(ctx: ActionCtx) {
+// Authorization gate. Verifies the caller is:
+//   1. Authenticated (Logto JWT validated by Convex)
+//   2. Provisioned in Convex users table (someone explicitly granted them access)
+//   3. Holds one of the allowed roles for this specific action
+// SECIB data is confidential (secret professionnel RIN, art. 226-13 CP) so we
+// fail closed: unknown identities and unknown roles are rejected.
+// CLI calls via `npx convex run` bypass via the admin key — fine for ops/debug.
+async function requireRole(
+  ctx: ActionCtx,
+  allowed: readonly UserRole[],
+): Promise<{ logtoUserId: string; role: UserRole }> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
     throw new Error(
-      "Authentication required. SECIB data is confidential — only signed-in NPL/syndic users may query it.",
+      "Authentication required. SECIB data is confidential — only signed-in users may query it.",
     );
   }
-  return identity;
+
+  const user = await ctx.runQuery(internal.users.getByLogtoId, {
+    logtoUserId: identity.subject,
+  });
+
+  if (!user) {
+    // The Logto JWT is valid but no one has provisioned this user in the
+    // Convex users table. They cannot see any SECIB data.
+    throw new Error(
+      `Forbidden: user ${identity.subject} is authenticated but not provisioned in immonpl. Contact an NPL admin to be granted access.`,
+    );
+  }
+
+  if (!allowed.includes(user.role as UserRole)) {
+    throw new Error(
+      `Forbidden: role "${user.role}" is not authorized for this action. Allowed: ${allowed.join(", ")}.`,
+    );
+  }
+
+  return { logtoUserId: user.logtoUserId, role: user.role as UserRole };
 }
 
 // Public health probe. Returns gateway/secib/redis status; no PII.
@@ -49,13 +86,13 @@ export const gatewayHealth = action({
 });
 
 // Returns the NPL cabinet identity (name, version, locale).
-// Auth-gated: cabinet metadata is not catastrophically sensitive but knowing
-// which cabinet sits behind a given Convex deployment is an info leak we don't
-// want exposed to anonymous clients.
+// Allowed for ALL provisioned roles: even a syndic user needs to know which
+// cabinet handles their cases. Knowing this is not a confidentiality breach
+// since the syndic is already a client of NPL.
 export const cabinetInfo = action({
   args: {},
   handler: async (ctx) => {
-    await requireAuthenticatedUser(ctx);
+    await requireRole(ctx, ALL_ROLES);
     const res = await fetch(`${SECIB_BASE_URL}/cabinet/info`, {
       headers: secibHeaders(),
     });
@@ -67,17 +104,19 @@ export const cabinetInfo = action({
   },
 });
 
-// Lists real SECIB cases — strictly confidential. Auth-gated.
-// TODO (S2): scope results by user's organization (org_syndic_X → only that
-// syndic's cases; org_npl → all cases visible to NPL). See PLAN_V1 §5–§6.
-// TODO (S2): write to auditLogs on every call (RGPD + RIN traceability).
+// Lists real SECIB cases — strictly confidential.
+// Restricted to NPL staff (admin/assistant/avocat). Syndic users will get a
+// scoped, filtered list via a DIFFERENT action in S2 (`dossiersDuSyndic`)
+// that only returns cases belonging to their org_syndic_X. Returning the
+// global list to a syndic would leak other syndics' confidential data.
+// TODO (S2): write to auditLogs on every call (RGPD + RIN traceability per PLAN_V1 §8).
 export const dossiersRechercher = action({
   args: {
     page: v.optional(v.number()),
     pageSize: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireAuthenticatedUser(ctx);
+    await requireRole(ctx, NPL_ROLES);
 
     const params = new URLSearchParams();
     if (args.page !== undefined) params.set("page", String(args.page));
