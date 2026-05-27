@@ -15,9 +15,21 @@ type UserRole =
   | "syndic_admin"
   | "syndic_gestionnaire";
 
-const NPL_ROLES = ["npl_admin", "npl_assistant", "npl_avocat"] as const;
+// Authorization tiers, per PLAN_V1 §6 visibility matrix:
+//   npl_admin / npl_assistant   → tous dossiers, tous syndics (full access)
+//   npl_avocat (futur)          → uniquement dossiers où intervenant SECIB (scoped)
+//   syndic_admin / gestionnaire → uniquement dossiers de leur syndic (scoped)
+//
+// IMPORTANT: never expand NPL_FULL_ACCESS_ROLES to include npl_avocat or syndic
+// roles. Each scoped role needs its own action that filters server-side.
+const NPL_FULL_ACCESS_ROLES = ["npl_admin", "npl_assistant"] as const;
+const NPL_SCOPED_ACCESS_ROLES = ["npl_avocat"] as const; // case-level scope via SECIB intervenant, see S2
 const SYNDIC_ROLES = ["syndic_admin", "syndic_gestionnaire"] as const;
-const ALL_ROLES = [...NPL_ROLES, ...SYNDIC_ROLES] as const;
+const ALL_ROLES = [
+  ...NPL_FULL_ACCESS_ROLES,
+  ...NPL_SCOPED_ACCESS_ROLES,
+  ...SYNDIC_ROLES,
+] as const;
 
 function secibHeaders(): HeadersInit {
   const apiKey = process.env.SECIB_GATEWAY_API_KEY;
@@ -104,11 +116,15 @@ export const cabinetInfo = action({
   },
 });
 
-// Lists real SECIB cases — strictly confidential.
-// Restricted to NPL staff (admin/assistant/avocat). Syndic users will get a
-// scoped, filtered list via a DIFFERENT action in S2 (`dossiersDuSyndic`)
-// that only returns cases belonging to their org_syndic_X. Returning the
-// global list to a syndic would leak other syndics' confidential data.
+// Lists ALL SECIB cases of the cabinet — strictly confidential, GLOBAL VIEW.
+// Restricted to NPL_FULL_ACCESS_ROLES only (admin + assistant).
+// Explicitly NOT allowed for:
+//   - npl_avocat: must use dossiersOuJeSuisIntervenant (S2) — filtered by
+//     SECIB intervenant. Per PLAN_V1 §6, avocats only see cases they are
+//     assigned to, not the full cabinet pipeline.
+//   - syndic_admin / syndic_gestionnaire: must use dossiersDuSyndic (S2)
+//     — filtered to their own org_syndic_X. Exposing the global list to a
+//     syndic would leak other syndics' confidential cases.
 // TODO (S2): write to auditLogs on every call (RGPD + RIN traceability per PLAN_V1 §8).
 export const dossiersRechercher = action({
   args: {
@@ -116,7 +132,7 @@ export const dossiersRechercher = action({
     pageSize: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, NPL_ROLES);
+    await requireRole(ctx, NPL_FULL_ACCESS_ROLES);
 
     const params = new URLSearchParams();
     if (args.page !== undefined) params.set("page", String(args.page));
