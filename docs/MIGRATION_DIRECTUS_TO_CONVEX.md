@@ -1,13 +1,23 @@
-# Migration Directus → Convex + Logto + SECIB
+# Remplacement de Directus par Convex + Logto + SECIB
 
-> **Statut** : S0 (Semaine 0) — fondation Convex provisionnée, ZÉRO impact sur l'existant Directus.
+> **Intention** : **Convex remplace Directus**. Ce n'est pas une cohabitation long-terme — c'est une migration complète.
+> **Statut** : S0 (Semaine 0) — fondation Convex provisionnée. Directus reste prod **uniquement** le temps de la bascule.
 > **Date début** : 2026-05-27
+> **Date cible décommission Directus** : T+6 semaines (fin S6) ; T+18 semaines max si pilote prolongé
 > **Branche** : `feat/convex-s0-setup`
 > **Réf** : [PLAN_V1.md](./PLAN_V1.md) (plan complet 6 semaines)
 
-## Pourquoi cette migration
+## État final visé (post-migration)
 
-Le stack actuel **Directus + Next.js** ([CLAUDE.md](../CLAUDE.md)) fonctionne en prod sur `immo.nplavocat.com`. Le PLAN_V1 introduit une évolution architecturale :
+Un seul backend = **Convex self-hosted**. `apps/directus/` sera **supprimé** du repo. `@directus/sdk` retiré de `apps/frontend/`. Le service Coolify `ImmoJuris` (Directus + Postgres + Redis) sera stoppé puis supprimé après vérification des backups.
+
+## Pourquoi remplacer Directus
+
+Le stack actuel **Directus + Next.js** ([CLAUDE.md](../CLAUDE.md)) fonctionne en prod sur `immo.nplavocat.com`, mais il a 3 limites majeures vs les besoins du PLAN_V1 (cabinet d'avocat, recouvrement copropriété) :
+
+1. **Pas de source de vérité juridique** : Directus stocke les dossiers en interne — pour un cabinet d'avocat, la source légale doit être **SECIB v8.1.4** (système métier validé barreau, traçabilité RIN). Convex agit comme couche applicative au-dessus de SECIB, Directus pas conçu pour ça.
+2. **Pas de real-time natif** : les listes de dossiers, messages syndic↔avocat, notifications nécessitent du WebSocket. Convex queries sont reactive par design ; Directus impose du polling.
+3. **Pas d'auth org-aware** : Directus RBAC = roles globaux. PLAN_V1 §6 exige du multi-tenant (org_npl + org_syndic_X par client) avec rôles d'organisation — c'est nativement Logto, pas Directus.
 
 | Couche | Aujourd'hui (prod) | Cible PLAN_V1 |
 |---|---|---|
@@ -17,23 +27,21 @@ Le stack actuel **Directus + Next.js** ([CLAUDE.md](../CLAUDE.md)) fonctionne en
 | Frontend | Next.js 15 (inchangé) | Next.js 15 (inchangé) |
 | Storage fichiers | Directus uploads | **MinIO S3-compatible** (5 buckets) |
 
-**Bénéfices visés** : 
-- Real-time UX (queries Convex auto-reactive)
-- TypeScript end-to-end (schema → queries → frontend)
-- Source de vérité juridique = SECIB (cabinet d'avocat = traçabilité RIN)
-- Multi-tenant Logto (org_npl + org_syndic_X par client)
+## Bascule pas-à-pas (Directus → Convex)
 
-## Approche non-disruptive
+La bascule est **séquentielle, pas parallèle long-terme**. À chaque étape, on **retire** une responsabilité à Directus et on la donne à Convex. Directus n'est gardé que tant qu'il porte encore au moins une responsabilité prod.
 
-Pendant S0–S2, **Directus reste live et c'est lui qui sert le frontend en prod**. Convex est provisionné en parallèle (sur les mêmes serveurs Coolify) sans toucher au code existant.
-
-Migration progressive prévue :
-- **S0** ✅ : provisioner infra Convex + Logto + setup Coolify (fait)
-- **S1** : wiring Logto auth dans Next.js + premier appel Convex en lecture (parallèle à Directus)
-- **S2** : schema Convex complet + import dossiers SECIB
-- **S3** : Portail Syndic basculé Convex (lecture)
-- **S4–S6** : Portail Admin + Wizard + Workspace, retire Directus
-- **S7+** : Directus reste pour migration data, puis sera décommissionné
+| Phase | Action | Directus assume encore… | Convex assume désormais… |
+|---|---|---|---|
+| **S0** ✅ (2026-05-27) | Infra Convex+Logto+SECIB provisionnée sur Coolify | TOUT (prod intacte) | Rien (juste l'infra existe) |
+| **S1** (S+1) | Wiring frontend : ConvexProvider, Logto SPA, middleware | Tout sauf l'auth | Auth (Logto remplace Directus auth) |
+| **S2** (S+2) | Schema Convex complet + import dossiers SECIB | Lecture dossiers | Schema/référentiels métier |
+| **S3** (S+3) | Portail Syndic réécrit sur Convex | Portail Admin uniquement | Portail Syndic (lecture + écriture) |
+| **S4–S5** (S+4–5) | Portail Admin réécrit sur Convex | Rien de critique | Tout le métier |
+| **S6** (S+6) | Audit, freeze Directus en read-only | Archive consultable | Tout |
+| **S6+1** | **Stop containers Directus**, export final données | — | Tout, seul backend |
+| **S6+2** | **Suppression `apps/directus/`** + `@directus/sdk` du repo | — (mort) | Tout |
+| **S6+3** | Suppression Coolify : service `ImmoJuris` + `database.nplavocats.com` DNS | — | Tout |
 
 ## Infra provisionnée S0 (2026-05-27)
 
@@ -82,12 +90,14 @@ Migration progressive prévue :
 | `docs/PLAN_V1.md` | Plan complet 6 semaines |
 | `docs/PROOF_OF_LIFE.md` | Comment tester le wiring SECIB depuis Convex |
 
-## Ce que cette branche NE touche PAS
+## Ce que cette branche NE touche PAS (encore)
 
-- ❌ `apps/directus/` — intact, Directus reste prod
-- ❌ `apps/frontend/` (sauf ajout convex deps) — code Next.js + Directus SDK intact
-- ❌ `packages/shared/` — types Directus intacts
-- ❌ `PLAN.md` racine — c'est le plan Directus, on garde pour traçabilité
+Volontairement intact pour cette PR — la **suppression** sera faite phase par phase une fois la responsabilité transférée à Convex :
+
+- `apps/directus/` — sera supprimé en S6+2
+- `apps/frontend/` — sera réécrit S3–S5 pour consommer Convex au lieu de Directus SDK
+- `packages/shared/` — types Directus, seront remplacés par types générés Convex (`convex/_generated/`) en S2
+- `PLAN.md` racine — c'est le plan Directus initial, gardé pour archive ; **PLAN_V1.md est la source de vérité à partir de S0**
 
 ## Étapes suivantes (S1 — frontend wiring)
 
