@@ -151,6 +151,74 @@ export default defineSchema({
     .index("by_case", ["caseId"])
     .index("by_pending_push", ["pendingPush", "lastEditedAt"]),
 
+  timeEntries: defineTable({
+    caseId: v.id("cases"),
+    userId: v.id("users"),
+    description: v.string(),
+    durationMinutes: v.number(),
+    ratePerHourCents: v.optional(v.number()),
+    startedAt: v.number(),
+    pendingPush: v.boolean(),
+    pushedToSecibAt: v.optional(v.number()),
+    secibFactureId: v.optional(v.string()),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_user_started", ["userId", "startedAt"])
+    .index("by_pending_push", ["pendingPush"]),
+
+  notifications: defineTable({
+    recipientUserId: v.id("users"),
+    type: v.union(
+      v.literal("NEW_MESSAGE"),
+      v.literal("STATUS_CHANGE"),
+      v.literal("DELAY_ALERT"),
+      v.literal("DOCUMENT_ADDED"),
+      v.literal("PIECE_REQUESTED"),
+      v.literal("PIECE_RECEIVED"),
+    ),
+    caseId: v.optional(v.id("cases")),
+    body: v.string(),
+    link: v.string(),
+    readAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_recipient_created", ["recipientUserId", "createdAt"])
+    .index("by_recipient_unread", ["recipientUserId", "readAt"]),
+
+  notificationPreferences: defineTable({
+    userId: v.id("users"),
+    channel: v.union(
+      v.literal("EMAIL"),
+      v.literal("PUSH"),
+      v.literal("IN_APP"),
+    ),
+    notificationType: v.string(),
+    enabled: v.boolean(),
+  }).index("by_user", ["userId"]),
+
+  delayAlerts: defineTable({
+    caseId: v.id("cases"),
+    delayType: v.union(
+      v.literal("PRESCRIPTION_QUINQUENNALE"),
+      v.literal("SIGNIFICATION_ASSIGNATION"),
+      v.literal("OPPOSITION_INJONCTION"),
+      v.literal("PEREMPTION_INSTANCE"),
+      v.literal("EXECUTION_JUGEMENT"),
+    ),
+    deadlineAt: v.number(),
+    level: v.union(
+      v.literal("J180"),
+      v.literal("J90"),
+      v.literal("J30"),
+      v.literal("J7"),
+      v.literal("EXPIRED"),
+    ),
+    computedAt: v.number(),
+    acknowledged: v.boolean(),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_level_deadline", ["level", "deadlineAt"]),
+
   auditLogs: defineTable({
     actorLogtoUserId: v.string(),
     actorRole: v.string(),
