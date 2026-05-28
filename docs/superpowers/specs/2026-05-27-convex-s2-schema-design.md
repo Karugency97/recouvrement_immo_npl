@@ -330,9 +330,9 @@ auditLogs: defineTable({
 | Core (augmenté) | 2 | 6 | ~50 |
 | Workflow | 2 | 8 | ~140 |
 | Collab | 2 | 3 | ~40 |
-| Admin ops | 4 | 7 | ~160 |
+| Admin ops | 4 | 8 | ~160 |
 | Cache & audit | 3 | 9 | ~110 |
-| **Total** | **13** | **33** | **~500** |
+| **Total** | **13** | **34** | **~500** |
 
 ## Hors scope S2 (= PRs ultérieures)
 

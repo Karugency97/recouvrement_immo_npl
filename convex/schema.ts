@@ -50,6 +50,8 @@ export default defineSchema({
       v.literal("CLOTURE"),
       v.literal("SUSPENDU"),
     ),
+    // Intentionally v.string() not the status union — same valid values
+    // but avoids a circular reference in v.union when storing the prior state.
     previousStatus: v.optional(v.string()),
     statusChangedAt: v.number(),
     statusChangedByUserId: v.id("users"),
@@ -102,7 +104,10 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_org", ["organizationId"])
-    .index("by_org_status", ["organizationId", "status"])
+    // Includes statusChangedAt so dashboard syndic queries "all dossiers of
+    // org X with status Y sorted by most-recently-changed" don't fall back
+    // to implicit _creationTime sort (Q1 server-side sort decision).
+    .index("by_org_status", ["organizationId", "status", "statusChangedAt"])
     .index("by_status", ["status"])
     .index("by_secib_dossier", ["secibDossierId"])
     .index("by_secib_intervenant", ["secibIntervenantId"]),
@@ -178,6 +183,8 @@ export default defineSchema({
     ),
     caseId: v.optional(v.id("cases")),
     body: v.string(),
+    // Frontend path, validated at insert time by the creating handler
+    // (no schema-level constraint — see "Strings ouvertes" in S2 spec).
     link: v.string(),
     readAt: v.optional(v.number()),
     createdAt: v.number(),
@@ -194,7 +201,12 @@ export default defineSchema({
     ),
     notificationType: v.string(),
     enabled: v.boolean(),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    // Lookup key for upsert (Convex has no UNIQUE constraint, but the
+    // upsert handler MUST query this index before insert to avoid duplicate
+    // rows on (userId, channel, notificationType) races).
+    .index("by_user_channel_type", ["userId", "channel", "notificationType"]),
 
   delayAlerts: defineTable({
     caseId: v.id("cases"),
