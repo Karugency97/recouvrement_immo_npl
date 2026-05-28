@@ -1,0 +1,294 @@
+import { internalMutation, type MutationCtx } from "./_generated/server";
+import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
+
+// ─────────────────────────────────────────────────────────────────
+// Constants from S0 infra (cf. MIGRATION_DIRECTUS_TO_CONVEX.md)
+// ─────────────────────────────────────────────────────────────────
+const NPL_ORG_LOGTO_ID = "9trwyqs3lm76";
+const NPL_ORG_NAME = "NPL — Cabinet Nancy Pierre-Louis";
+
+// ─────────────────────────────────────────────────────────────────
+// S1 — provisionNplUser (also in PR #2 ; trivial merge if S1 lands first)
+// ─────────────────────────────────────────────────────────────────
+
+export const provisionNplUser = internalMutation({
+  args: {
+    logtoUserId: v.string(),
+    email: v.string(),
+    name: v.string(),
+    role: v.union(
+      v.literal("npl_admin"),
+      v.literal("npl_assistant"),
+      v.literal("npl_avocat"),
+    ),
+  },
+  handler: async (ctx, args) => {
+    let org = await ctx.db
+      .query("organizations")
+      .withIndex("by_logto_org", (q) => q.eq("logtoOrgId", NPL_ORG_LOGTO_ID))
+      .unique();
+    if (!org) {
+      const orgId = await ctx.db.insert("organizations", {
+        logtoOrgId: NPL_ORG_LOGTO_ID,
+        kind: "npl",
+        name: NPL_ORG_NAME,
+        createdAt: Date.now(),
+      });
+      org = await ctx.db.get(orgId);
+      if (!org) throw new Error("Failed to insert NPL organization row");
+    }
+
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_logto_user", (q) =>
+        q.eq("logtoUserId", args.logtoUserId),
+      )
+      .unique();
+    if (existing) {
+      return {
+        status: "exists" as const,
+        userId: existing._id,
+        organizationId: org._id,
+        role: existing.role,
+      };
+    }
+    const userId = await ctx.db.insert("users", {
+      logtoUserId: args.logtoUserId,
+      email: args.email,
+      name: args.name,
+      role: args.role,
+      organizationId: org._id,
+      createdAt: Date.now(),
+    });
+    return {
+      status: "created" as const,
+      userId,
+      organizationId: org._id,
+      role: args.role,
+    };
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────
+// S2 — Fixture helpers (proper MutationCtx typing)
+// ─────────────────────────────────────────────────────────────────
+
+async function getNplOrgAndFirstUser(
+  ctx: MutationCtx,
+): Promise<{ orgId: Id<"organizations">; userId: Id<"users"> }> {
+  const org = await ctx.db
+    .query("organizations")
+    .withIndex("by_logto_org", (q) => q.eq("logtoOrgId", NPL_ORG_LOGTO_ID))
+    .unique();
+  if (!org) throw new Error("Run seed:provisionNplUser first — NPL org missing");
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_organization", (q) => q.eq("organizationId", org._id))
+    .first();
+  if (!user) throw new Error("Run seed:provisionNplUser first — no user in NPL org");
+  return { orgId: org._id, userId: user._id };
+}
+
+async function getOrCreateFixtureCase(ctx: MutationCtx): Promise<Id<"cases">> {
+  const { orgId, userId } = await getNplOrgAndFirstUser(ctx);
+  const existing = await ctx.db
+    .query("cases")
+    .withIndex("by_org", (q) => q.eq("organizationId", orgId))
+    .first();
+  if (existing) return existing._id;
+  const now = Date.now();
+  return await ctx.db.insert("cases", {
+    organizationId: orgId,
+    authorUserId: userId,
+    status: "CREE",
+    statusChangedAt: now,
+    statusChangedByUserId: userId,
+    casSpecial: [],
+    principalCents: 1000_00,
+    principalDateExigibilite: now,
+    pieces: [],
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// S2 — Insert fixtures (1 par nouvelle table)
+// ─────────────────────────────────────────────────────────────────
+
+export const insertCaseFixture = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const { orgId, userId } = await getNplOrgAndFirstUser(ctx);
+    const now = Date.now();
+    const id = await ctx.db.insert("cases", {
+      organizationId: orgId,
+      authorUserId: userId,
+      status: "CREE",
+      statusChangedAt: now,
+      statusChangedByUserId: userId,
+      casSpecial: [],
+      principalCents: 1500_00,
+      principalDateExigibilite: now - 90 * 24 * 60 * 60 * 1000,
+      pieces: [
+        {
+          type: "DECOMPTE_CHARGES",
+          requirement: "obligatoire",
+          status: "REQUESTED",
+          requestedAt: now,
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { status: "inserted" as const, id };
+  },
+});
+
+export const insertCaseDraftFixture = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const { orgId, userId } = await getNplOrgAndFirstUser(ctx);
+    const now = Date.now();
+    const id = await ctx.db.insert("caseDrafts", {
+      organizationId: orgId,
+      authorUserId: userId,
+      casSpecial: [],
+      debiteurNom: "FIXTURE — Mme Test",
+      principalCents: 2500_00,
+      currentStep: "DEBITEUR",
+      wizardData: { adresseLine1: "12 rue de la fixture, 75001 Paris" },
+      updatedAt: now,
+      expiresAt: now + 30 * 24 * 60 * 60 * 1000,
+    });
+    return { status: "inserted" as const, id };
+  },
+});
+
+export const insertMessageFixture = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await getNplOrgAndFirstUser(ctx);
+    const caseId = await getOrCreateFixtureCase(ctx);
+    const id = await ctx.db.insert("messages", {
+      caseId,
+      senderUserId: userId,
+      senderRole: "avocat",
+      body: "FIXTURE — Message test S2",
+      createdAt: Date.now(),
+    });
+    return { status: "inserted" as const, id };
+  },
+});
+
+export const insertNoteFixture = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await getNplOrgAndFirstUser(ctx);
+    const caseId = await getOrCreateFixtureCase(ctx);
+    const now = Date.now();
+    const id = await ctx.db.insert("notes", {
+      caseId,
+      authorUserId: userId,
+      body: "FIXTURE — Note interne test S2",
+      lastEditedAt: now,
+      pendingPush: true,
+    });
+    return { status: "inserted" as const, id };
+  },
+});
+
+export const insertTimeEntryFixture = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await getNplOrgAndFirstUser(ctx);
+    const caseId = await getOrCreateFixtureCase(ctx);
+    const id = await ctx.db.insert("timeEntries", {
+      caseId,
+      userId,
+      description: "FIXTURE — Étude du dossier (test S2)",
+      durationMinutes: 45,
+      startedAt: Date.now(),
+      pendingPush: true,
+    });
+    return { status: "inserted" as const, id };
+  },
+});
+
+export const insertNotificationFixture = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await getNplOrgAndFirstUser(ctx);
+    const id = await ctx.db.insert("notifications", {
+      recipientUserId: userId,
+      type: "NEW_MESSAGE",
+      body: "FIXTURE — Vous avez un nouveau message (test S2)",
+      link: "/dossiers/fixture",
+      createdAt: Date.now(),
+    });
+    return { status: "inserted" as const, id };
+  },
+});
+
+export const insertNotificationPreferenceFixture = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await getNplOrgAndFirstUser(ctx);
+    const id = await ctx.db.insert("notificationPreferences", {
+      userId,
+      channel: "EMAIL",
+      notificationType: "NEW_MESSAGE",
+      enabled: true,
+    });
+    return { status: "inserted" as const, id };
+  },
+});
+
+export const insertDelayAlertFixture = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const caseId = await getOrCreateFixtureCase(ctx);
+    const now = Date.now();
+    const id = await ctx.db.insert("delayAlerts", {
+      caseId,
+      delayType: "PRESCRIPTION_QUINQUENNALE",
+      deadlineAt: now + 180 * 24 * 60 * 60 * 1000,
+      level: "J180",
+      computedAt: now,
+      acknowledged: false,
+    });
+    return { status: "inserted" as const, id };
+  },
+});
+
+export const insertCachedReferentialsFixture = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const id = await ctx.db.insert("cachedReferentials", {
+      kind: "MATIERES_CONTENTIEUX",
+      payload: { fixture: true, codes: ["RECOUVREMENT_COPRO"] },
+      fetchedAt: now,
+      ttlAt: now + 24 * 60 * 60 * 1000,
+    });
+    return { status: "inserted" as const, id };
+  },
+});
+
+export const insertSecibFetchLogFixture = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await getNplOrgAndFirstUser(ctx);
+    const id = await ctx.db.insert("secibFetchLog", {
+      endpoint: "gw_cabinet_info",
+      targetType: "cabinet",
+      targetId: "fixture",
+      responsePayload: { fixture: true },
+      status: 200,
+      fetchedAt: Date.now(),
+      fetchedByUserId: userId,
+    });
+    return { status: "inserted" as const, id };
+  },
+});
