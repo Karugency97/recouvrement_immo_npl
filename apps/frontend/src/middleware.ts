@@ -3,10 +3,22 @@ import type { NextRequest } from "next/server";
 
 const publicPaths = ["/login", "/forgot-password"];
 
+// Convex/Logto-protected routes (S1+). These bypass the Directus auth flow
+// entirely and rely on Logto session + Convex action requireRole() instead.
+// As each portail is rewritten on Convex (S3–S5), add its prefix here and
+// remove the corresponding Directus-protected route below.
+const convexPaths = ["/convex-poc"];
+
 const DIRECTUS_URL = process.env.NEXT_PUBLIC_DIRECTUS_URL!;
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Logto / Convex routes — let the route handler or page-level auth gate
+  // decide. Middleware only knows about Directus cookies, not Logto sessions.
+  if (convexPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return NextResponse.next();
+  }
 
   // Allow public paths, API routes, static files
   if (
