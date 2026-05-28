@@ -37,6 +37,7 @@ Thumbs.db
 .windsurf/
 .zencoder/
 .mcp.json
+.superpowers/
 
 # Debug
 npm-debug.log*
