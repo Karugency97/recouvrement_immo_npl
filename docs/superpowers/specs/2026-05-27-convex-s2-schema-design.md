@@ -87,6 +87,8 @@ cases: defineTable({
     v.literal("SUSPENDU"),  // transverse — retour previousStatus possible
   ),
   // Pour SUSPENDU → retour à previousStatus
+  // Intentionally v.string() not the status union — same valid values
+  // but avoids a circular reference in v.union when storing the prior state.
   previousStatus: v.optional(v.string()),
   statusChangedAt: v.number(),
   statusChangedByUserId: v.id("users"),
@@ -140,7 +142,10 @@ cases: defineTable({
   updatedAt: v.number(),
 })
   .index("by_org", ["organizationId"])
-  .index("by_org_status", ["organizationId", "status"])  // dashboard syndic filtré
+  // Includes statusChangedAt so dashboard syndic queries "all dossiers of
+  // org X with status Y sorted by most-recently-changed" don't fall back
+  // to implicit _creationTime sort (Q1 server-side sort decision).
+  .index("by_org_status", ["organizationId", "status", "statusChangedAt"])  // dashboard syndic filtré + sort
   .index("by_status", ["status"])                         // workspace admin NPL
   .index("by_secib_dossier", ["secibDossierId"])         // import & sync
   .index("by_secib_intervenant", ["secibIntervenantId"]) // scope npl_avocat
@@ -227,7 +232,8 @@ notifications: defineTable({
   ),
   caseId: v.optional(v.id("cases")),
   body: v.string(),
-  link: v.string(),  // path frontend, ex "/dossiers/abc/messages"
+  // path frontend, ex "/dossiers/abc/messages" — validated at insert time by the creating handler
+  link: v.string(),
   readAt: v.optional(v.number()),
   createdAt: v.number(),
 })
@@ -245,7 +251,11 @@ notificationPreferences: defineTable({
   notificationType: v.string(),
   enabled: v.boolean(),
 })
-  .index("by_user", ["userId"]),
+  .index("by_user", ["userId"])
+  // Lookup key for upsert (Convex has no UNIQUE constraint, but the
+  // upsert handler MUST query this index before insert to avoid duplicate
+  // rows on (userId, channel, notificationType) races).
+  .index("by_user_channel_type", ["userId", "channel", "notificationType"]),
 
 delayAlerts: defineTable({
   caseId: v.id("cases"),
