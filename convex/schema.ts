@@ -219,7 +219,35 @@ export default defineSchema({
     .index("by_case", ["caseId"])
     .index("by_level_deadline", ["level", "deadlineAt"]),
 
+  cachedReferentials: defineTable({
+    kind: v.union(
+      v.literal("CODES_ACTIVITES"),
+      v.literal("CODES_FACTURATION"),
+      v.literal("MATIERES_CONTENTIEUX"),
+      v.literal("INTERVENANTS"),
+      v.literal("ETAPES_PARAPHEUR"),
+    ),
+    payload: v.any(),
+    fetchedAt: v.number(),
+    ttlAt: v.number(),
+  }).index("by_kind", ["kind"]),
+
+  secibFetchLog: defineTable({
+    endpoint: v.string(),
+    targetType: v.string(),
+    targetId: v.string(),
+    requestParams: v.optional(v.any()),
+    responsePayload: v.any(),
+    status: v.number(),
+    fetchedAt: v.number(),
+    fetchedByUserId: v.id("users"),
+  })
+    .index("by_target", ["targetType", "targetId", "fetchedAt"])
+    .index("by_endpoint_time", ["endpoint", "fetchedAt"])
+    .index("by_user_time", ["fetchedByUserId", "fetchedAt"]),
+
   auditLogs: defineTable({
+    // S0 existant
     actorLogtoUserId: v.string(),
     actorRole: v.string(),
     action: v.string(),
@@ -228,8 +256,13 @@ export default defineSchema({
     metadata: v.optional(v.any()),
     ip: v.optional(v.string()),
     createdAt: v.number(),
+    // S2 enrichi
+    actorUserId: v.optional(v.id("users")),
+    actorOrganizationId: v.optional(v.id("organizations")),
   })
     .index("by_actor", ["actorLogtoUserId"])
     .index("by_target", ["targetType", "targetId"])
-    .index("by_created", ["createdAt"]),
+    .index("by_created", ["createdAt"])
+    .index("by_org_created", ["actorOrganizationId", "createdAt"])
+    .index("by_action_created", ["action", "createdAt"]),
 });
