@@ -10,6 +10,7 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_logto_org", ["logtoOrgId"])
+    .index("by_secib_personne", ["secibSyndicPersonneId"])
     .index("by_kind", ["kind"]),
 
   users: defineTable({
@@ -24,11 +25,14 @@ export default defineSchema({
       v.literal("syndic_gestionnaire"),
     ),
     organizationId: v.id("organizations"),
+    // npl_avocat seulement — référence intervenant SECIB pour scope dossiersOuJeSuisIntervenant (S2b)
+    secibIntervenantId: v.optional(v.string()),
     createdAt: v.number(),
     lastSeenAt: v.optional(v.number()),
   })
     .index("by_logto_user", ["logtoUserId"])
-    .index("by_organization", ["organizationId"]),
+    .index("by_organization", ["organizationId"])
+    .index("by_secib_intervenant", ["secibIntervenantId"]),
 
   auditLogs: defineTable({
     actorLogtoUserId: v.string(),
