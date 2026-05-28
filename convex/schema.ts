@@ -130,6 +130,27 @@ export default defineSchema({
     .index("by_org", ["organizationId"])
     .index("by_expires", ["expiresAt"]),
 
+  messages: defineTable({
+    caseId: v.id("cases"),
+    senderUserId: v.id("users"),
+    senderRole: v.union(v.literal("syndic"), v.literal("avocat")),
+    body: v.string(),
+    attachmentSecibDocId: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_case_created", ["caseId", "createdAt"]),
+
+  notes: defineTable({
+    caseId: v.id("cases"),
+    authorUserId: v.id("users"),
+    body: v.string(),
+    lastEditedAt: v.number(),
+    pendingPush: v.boolean(),
+    lastPushedToSecibAt: v.optional(v.number()),
+    secibDocId: v.optional(v.string()),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_pending_push", ["pendingPush", "lastEditedAt"]),
+
   auditLogs: defineTable({
     actorLogtoUserId: v.string(),
     actorRole: v.string(),
