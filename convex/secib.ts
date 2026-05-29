@@ -1,151 +1,135 @@
 "use node";
 
-import { action, ActionCtx } from "./_generated/server";
+import { action } from "./_generated/server";
+import { v, ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
-import { v } from "convex/values";
+import { withAuditLog, type AuditContext } from "./lib/audit";
+import { secibFetch } from "./lib/secibFetch";
+import {
+  NPL_FULL_ACCESS_ROLES,
+  SYNDIC_ROLES,
+  ALL_ROLES,
+  type UserRole,
+} from "./lib/auth";
+import { forbidden, noSecibPersonneId } from "./lib/errors";
 
 const SECIB_BASE_URL =
   process.env.SECIB_GATEWAY_BASE_URL ?? "https://apisecib.nplavocat.com/api/v1";
 
-// Role unions kept in sync with convex/schema.ts users.role
-type UserRole =
-  | "npl_admin"
-  | "npl_assistant"
-  | "npl_avocat"
-  | "syndic_admin"
-  | "syndic_gestionnaire";
-
-// Authorization tiers, per PLAN_V1 §6 visibility matrix:
-//   npl_admin / npl_assistant   → tous dossiers, tous syndics (full access)
-//   npl_avocat (futur)          → uniquement dossiers où intervenant SECIB (scoped)
-//   syndic_admin / gestionnaire → uniquement dossiers de leur syndic (scoped)
-//
-// IMPORTANT: never expand NPL_FULL_ACCESS_ROLES to include npl_avocat or syndic
-// roles. Each scoped role needs its own action that filters server-side.
-const NPL_FULL_ACCESS_ROLES = ["npl_admin", "npl_assistant"] as const;
-const NPL_SCOPED_ACCESS_ROLES = ["npl_avocat"] as const; // case-level scope via SECIB intervenant, see S2
-const SYNDIC_ROLES = ["syndic_admin", "syndic_gestionnaire"] as const;
-const ALL_ROLES = [
-  ...NPL_FULL_ACCESS_ROLES,
-  ...NPL_SCOPED_ACCESS_ROLES,
-  ...SYNDIC_ROLES,
-] as const;
-
-function secibHeaders(): HeadersInit {
-  const apiKey = process.env.SECIB_GATEWAY_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "SECIB_GATEWAY_API_KEY is not set. Configure it in Convex env vars (npx convex env set SECIB_GATEWAY_API_KEY <key>).",
-    );
+// ─────────────────────────────────────────────────────────────────
+// assertRole — callsite role check inside a withAuditLog callback.
+// withAuditLog resolves identity to any provisioned user (ALL_ROLES);
+// the action then narrows that to its specific allow-list via this helper.
+// ─────────────────────────────────────────────────────────────────
+function assertRole(audit: AuditContext, allowed: readonly UserRole[]): void {
+  if (!allowed.includes(audit.role)) {
+    throw forbidden(audit.role, allowed);
   }
-  return {
-    "X-API-Key": apiKey,
-    Accept: "application/json",
-  };
 }
 
-// Authorization gate. Verifies the caller is:
-//   1. Authenticated (Logto JWT validated by Convex)
-//   2. Provisioned in Convex users table (someone explicitly granted them access)
-//   3. Holds one of the allowed roles for this specific action
-// SECIB data is confidential (secret professionnel RIN, art. 226-13 CP) so we
-// fail closed: unknown identities and unknown roles are rejected.
-// CLI calls via `npx convex run` bypass via the admin key — fine for ops/debug.
-async function requireRole(
-  ctx: ActionCtx,
-  allowed: readonly UserRole[],
-): Promise<{ logtoUserId: string; role: UserRole }> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    throw new Error(
-      "Authentication required. SECIB data is confidential — only signed-in users may query it.",
-    );
-  }
-
-  const user = await ctx.runQuery(internal.users.getByLogtoId, {
-    logtoUserId: identity.subject,
-  });
-
-  if (!user) {
-    // The Logto JWT is valid but no one has provisioned this user in the
-    // Convex users table. They cannot see any SECIB data.
-    throw new Error(
-      `Forbidden: user ${identity.subject} is authenticated but not provisioned in immonpl. Contact an NPL admin to be granted access.`,
-    );
-  }
-
-  if (!allowed.includes(user.role as UserRole)) {
-    throw new Error(
-      `Forbidden: role "${user.role}" is not authorized for this action. Allowed: ${allowed.join(", ")}.`,
-    );
-  }
-
-  return { logtoUserId: user.logtoUserId, role: user.role as UserRole };
-}
-
-// Public health probe. Returns gateway/secib/redis status; no PII.
-// Safe to call unauthenticated from monitoring/uptime tools.
+// ─────────────────────────────────────────────────────────────────
+// gatewayHealth — public health probe. No audit, no SECIB API key.
+// Calls /admin/health which is unauthenticated on the gateway side.
+// Safe to call from monitoring/uptime tools.
+// ─────────────────────────────────────────────────────────────────
 export const gatewayHealth = action({
   args: {},
   handler: async () => {
     const res = await fetch(`${SECIB_BASE_URL}/admin/health`);
     if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`SECIB gateway health ${res.status}: ${body}`);
+      throw new ConvexError({
+        code: "secib.health_check_failed",
+        message: `SECIB gateway health ${res.status}`,
+        status: res.status,
+      });
     }
     return await res.json();
   },
 });
 
-// Returns the NPL cabinet identity (name, version, locale).
-// Allowed for ALL provisioned roles: even a syndic user needs to know which
-// cabinet handles their cases. Knowing this is not a confidentiality breach
-// since the syndic is already a client of NPL.
+// ─────────────────────────────────────────────────────────────────
+// cabinetInfo — NPL cabinet identity. Allowed for ALL provisioned roles
+// (even a syndic needs to know which cabinet handles its cases).
+// ─────────────────────────────────────────────────────────────────
 export const cabinetInfo = action({
   args: {},
   handler: async (ctx) => {
-    await requireRole(ctx, ALL_ROLES);
-    const res = await fetch(`${SECIB_BASE_URL}/cabinet/info`, {
-      headers: secibHeaders(),
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`SECIB gateway ${res.status}: ${body}`);
-    }
-    return await res.json();
+    return await withAuditLog(
+      ctx,
+      { action: "secib.cabinet_info", targetType: "cabinet", targetId: "self" },
+      async (audit) => {
+        assertRole(audit, ALL_ROLES);
+        return await secibFetch(ctx, audit, {
+          endpoint: "/cabinet/info",
+          targetType: "cabinet",
+          targetId: "self",
+        });
+      },
+    );
   },
 });
 
-// Lists ALL SECIB cases of the cabinet — strictly confidential, GLOBAL VIEW.
-// Restricted to NPL_FULL_ACCESS_ROLES only (admin + assistant).
-// Explicitly NOT allowed for:
-//   - npl_avocat: must use dossiersOuJeSuisIntervenant (S2) — filtered by
-//     SECIB intervenant. Per PLAN_V1 §6, avocats only see cases they are
-//     assigned to, not the full cabinet pipeline.
-//   - syndic_admin / syndic_gestionnaire: must use dossiersDuSyndic (S2)
-//     — filtered to their own org_syndic_X. Exposing the global list to a
-//     syndic would leak other syndics' confidential cases.
-// TODO (S2): write to auditLogs on every call (RGPD + RIN traceability per PLAN_V1 §8).
+// ─────────────────────────────────────────────────────────────────
+// dossiersRechercher — GLOBAL list of cabinet dossiers.
+// Restricted to NPL_FULL_ACCESS_ROLES (admin + assistant). Scoped roles
+// (npl_avocat, syndic_*) MUST use their dedicated scoped actions.
+// ─────────────────────────────────────────────────────────────────
 export const dossiersRechercher = action({
   args: {
     page: v.optional(v.number()),
     pageSize: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, NPL_FULL_ACCESS_ROLES);
+    return await withAuditLog(
+      ctx,
+      {
+        action: "secib.dossiers_rechercher",
+        targetType: "dossiers_global",
+        targetId: "all",
+        metadata: { page: args.page, pageSize: args.pageSize },
+      },
+      async (audit) => {
+        assertRole(audit, NPL_FULL_ACCESS_ROLES);
+        return await secibFetch(ctx, audit, {
+          endpoint: "/dossiers",
+          targetType: "dossiers_global",
+          targetId: "all",
+          params: {
+            ...(args.page !== undefined && { page: args.page }),
+            ...(args.pageSize !== undefined && { pageSize: args.pageSize }),
+          },
+        });
+      },
+    );
+  },
+});
 
-    const params = new URLSearchParams();
-    if (args.page !== undefined) params.set("page", String(args.page));
-    if (args.pageSize !== undefined) params.set("pageSize", String(args.pageSize));
-
-    const qs = params.toString();
-    const url = `${SECIB_BASE_URL}/dossiers${qs ? `?${qs}` : ""}`;
-
-    const res = await fetch(url, { headers: secibHeaders() });
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`SECIB gateway ${res.status}: ${body}`);
-    }
-    return await res.json();
+// ─────────────────────────────────────────────────────────────────
+// dossiersDuSyndic — SCOPED list for syndic users.
+// Uses gw_personnes_dossiers(secibSyndicPersonneId) so the filter happens
+// at the SECIB gateway (1 RTT, no over-fetch). No args : scope is deduced
+// from the caller's organization.
+// ─────────────────────────────────────────────────────────────────
+export const dossiersDuSyndic = action({
+  args: {},
+  handler: async (ctx) => {
+    return await withAuditLog(
+      ctx,
+      { action: "secib.dossiers_du_syndic" },
+      async (audit) => {
+        assertRole(audit, SYNDIC_ROLES);
+        const org = await ctx.runQuery(internal.organizations.getById, {
+          id: audit.organizationId,
+        });
+        if (!org?.secibSyndicPersonneId) {
+          throw noSecibPersonneId(org?.name ?? "<unknown>");
+        }
+        return await secibFetch(ctx, audit, {
+          endpoint: `/personnes/${org.secibSyndicPersonneId}/dossiers`,
+          targetType: "personne_dossiers",
+          targetId: org.secibSyndicPersonneId,
+        });
+      },
+    );
   },
 });
