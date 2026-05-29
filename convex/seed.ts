@@ -1,5 +1,5 @@
 import { internalMutation, type MutationCtx } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 
 // ─────────────────────────────────────────────────────────────────
@@ -36,7 +36,7 @@ export const provisionNplUser = internalMutation({
         createdAt: Date.now(),
       });
       org = await ctx.db.get(orgId);
-      if (!org) throw new Error("Failed to insert NPL organization row");
+      if (!org) throw new ConvexError("seed.insert_failed: NPL organization row");
     }
 
     const existing = await ctx.db
@@ -81,12 +81,12 @@ async function getNplOrgAndFirstUser(
     .query("organizations")
     .withIndex("by_logto_org", (q) => q.eq("logtoOrgId", NPL_ORG_LOGTO_ID))
     .unique();
-  if (!org) throw new Error("Run seed:provisionNplUser first — NPL org missing");
+  if (!org) throw new ConvexError("seed.prerequisite_missing: Run seed:provisionNplUser first — NPL org missing");
   const user = await ctx.db
     .query("users")
     .withIndex("by_organization", (q) => q.eq("organizationId", org._id))
     .first();
-  if (!user) throw new Error("Run seed:provisionNplUser first — no user in NPL org");
+  if (!user) throw new ConvexError("seed.prerequisite_missing: Run seed:provisionNplUser first — no user in NPL org");
   return { orgId: org._id, userId: user._id };
 }
 
@@ -290,5 +290,76 @@ export const insertSecibFetchLogFixture = internalMutation({
       fetchedByUserId: userId,
     });
     return { status: "inserted" as const, id };
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────
+// S2b — Provision a test syndic user (requires real secibSyndicPersonneId).
+//
+// Usage:
+//   pnpm convex:run seed:seedSyndicTestUser '{
+//     "logtoUserId": "<logto user id>",
+//     "email":       "<user email>",
+//     "name":        "Syndic Test",
+//     "secibSyndicPersonneId": "<real SECIB personne id of the syndic>",
+//     "syndicOrgName": "Syndic Test ABC"
+//   }'
+// ─────────────────────────────────────────────────────────────────
+
+export const seedSyndicTestUser = internalMutation({
+  args: {
+    logtoUserId: v.string(),
+    email: v.string(),
+    name: v.string(),
+    secibSyndicPersonneId: v.string(),
+    syndicOrgName: v.string(),
+    logtoOrgId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const logtoOrgId =
+      args.logtoOrgId ?? `test_syndic_${args.secibSyndicPersonneId}`;
+    let org = await ctx.db
+      .query("organizations")
+      .withIndex("by_logto_org", (q) => q.eq("logtoOrgId", logtoOrgId))
+      .unique();
+    if (!org) {
+      const id = await ctx.db.insert("organizations", {
+        logtoOrgId,
+        kind: "syndic",
+        name: args.syndicOrgName,
+        secibSyndicPersonneId: args.secibSyndicPersonneId,
+        createdAt: Date.now(),
+      });
+      org = await ctx.db.get(id);
+      if (!org) {
+        throw new ConvexError("seed.insert_failed: syndic test org");
+      }
+    }
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_logto_user", (q) =>
+        q.eq("logtoUserId", args.logtoUserId),
+      )
+      .unique();
+    if (existing) {
+      return {
+        status: "exists" as const,
+        userId: existing._id,
+        organizationId: org._id,
+      };
+    }
+    const userId = await ctx.db.insert("users", {
+      logtoUserId: args.logtoUserId,
+      email: args.email,
+      name: args.name,
+      role: "syndic_admin",
+      organizationId: org._id,
+      createdAt: Date.now(),
+    });
+    return {
+      status: "created" as const,
+      userId,
+      organizationId: org._id,
+    };
   },
 });
