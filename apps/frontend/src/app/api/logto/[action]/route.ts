@@ -20,25 +20,31 @@ export async function GET(
   { params }: { params: Promise<{ action: string }> },
 ) {
   const { action } = await params;
-  const origin = request.nextUrl.origin;
+  // Never derive URLs from request.nextUrl.origin: behind the reverse proxy
+  // the standalone Next server sees https://0.0.0.0:3000, which Logto rejects
+  // (invalid_redirect_uri). logtoConfig.baseUrl = NEXT_PUBLIC_APP_URL is the
+  // public origin in every environment.
+  const callbackUri = `${logtoConfig.baseUrl}/api/logto/callback`;
 
   switch (action) {
     case "sign-in": {
       // @logto/next defaults to `${baseUrl}/callback`; our handler (and the
       // redirect URI registered in Logto) lives at /api/logto/callback.
-      await signIn(logtoConfig, { redirectUri: `${origin}/api/logto/callback` });
+      await signIn(logtoConfig, { redirectUri: callbackUri });
       return NextResponse.json({ status: "redirecting" });
     }
     case "callback": {
-      // Pass the full URL (not just searchParams) so the SDK verifies the
-      // callback against /api/logto/callback instead of the default /callback.
-      await handleSignIn(logtoConfig, new URL(request.url));
+      // Rebuild the callback URL on the public origin (the SDK compares it
+      // to the redirectUri stored at sign-in), keeping the incoming params.
+      const callbackUrl = new URL(callbackUri);
+      callbackUrl.search = request.nextUrl.search;
+      await handleSignIn(logtoConfig, callbackUrl);
       // "/" is still guarded by the legacy Directus middleware (redirects to
       // its own /login) — land on the Convex playground instead.
       redirect("/convex-poc/dossiers");
     }
     case "sign-out": {
-      await signOut(logtoConfig, origin);
+      await signOut(logtoConfig, logtoConfig.baseUrl);
       return NextResponse.json({ status: "redirecting" });
     }
     default:
