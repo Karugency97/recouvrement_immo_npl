@@ -70,3 +70,13 @@ export function secibApiKeyMissing(): ConvexError<{ code: string; message: strin
       "SECIB_GATEWAY_API_KEY is not set. Configure it via `npx convex env set SECIB_GATEWAY_API_KEY <key>`.",
   });
 }
+
+export function noSecibIntervenantId(
+  logtoUserId: string,
+): ConvexError<{ code: string; message: string; logtoUserId: string }> {
+  return new ConvexError({
+    code: "avocat.no_secib_intervenant_id",
+    message: `User ${logtoUserId} has no secibIntervenantId configured. An NPL admin must map this account to its SECIB intervenant (seed:setUserSecibIntervenantId).`,
+    logtoUserId,
+  });
+}

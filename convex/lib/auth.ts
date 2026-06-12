@@ -1,4 +1,4 @@
-import type { ActionCtx } from "../_generated/server";
+import type { ActionCtx, QueryCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { notAuthenticated, notProvisioned, forbidden } from "./errors";
@@ -74,4 +74,30 @@ export async function requireRole(
     role: user.role as UserRole,
     organizationId: user.organizationId,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// requireRoleQuery — même gate que requireRole, mais pour les QUERIES.
+// Les queries n'ont pas ctx.runQuery : on lit users directement via
+// ctx.db. Retourne le doc user complet (les queries scoped ont besoin
+// de champs comme secibIntervenantId, pas seulement des ids).
+// ─────────────────────────────────────────────────────────────────
+export async function requireRoleQuery(
+  ctx: QueryCtx,
+  allowed: readonly UserRole[],
+) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw notAuthenticated();
+
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_logto_user", (q) => q.eq("logtoUserId", identity.subject))
+    .unique();
+  if (!user) throw notProvisioned(identity.subject);
+
+  if (!allowed.includes(user.role as UserRole)) {
+    throw forbidden(user.role, allowed);
+  }
+
+  return user;
 }

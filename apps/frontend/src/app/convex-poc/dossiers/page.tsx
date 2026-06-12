@@ -2,7 +2,7 @@
 
 import { useAction, useQuery, Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { makeFunctionReference } from "convex/server";
-import { useState } from "react";
+import React, { useState } from "react";
 
 // Type-erased references (we don't import _generated/api here to avoid
 // coupling the frontend tsconfig to the convex codegen output).
@@ -10,6 +10,9 @@ const meQuery = makeFunctionReference<"query">("users:me");
 const cabinetInfoAction = makeFunctionReference<"action">("secib:cabinetInfo");
 const dossiersRechercherAction = makeFunctionReference<"action">("secib:dossiersRechercher");
 const dossiersDuSyndicAction = makeFunctionReference<"action">("secib:dossiersDuSyndic");
+const dossiersIntervenantQuery = makeFunctionReference<"query">(
+  "cases:dossiersOuJeSuisIntervenant",
+);
 
 type ActionResult = { label: string; data: unknown } | null;
 type ActionError = { label: string; message: string; details?: unknown } | null;
@@ -23,6 +26,7 @@ function PlaygroundContent() {
   const [result, setResult] = useState<ActionResult>(null);
   const [error, setError] = useState<ActionError>(null);
   const [pending, setPending] = useState<string | null>(null);
+  const [showIntervenant, setShowIntervenant] = useState(false);
 
   const run = async (label: string, fn: () => Promise<unknown>) => {
     setPending(label);
@@ -87,6 +91,9 @@ function PlaygroundContent() {
         >
           {pending === "dossiersDuSyndic" ? "Running…" : "dossiersDuSyndic"}
         </button>
+        <button onClick={() => setShowIntervenant((s) => !s)} style={btnStyle(false)}>
+          dossiersOuJeSuisIntervenant
+        </button>
       </section>
 
       {/* Result */}
@@ -108,6 +115,15 @@ function PlaygroundContent() {
               <pre style={preStyle(true)}>{JSON.stringify(error.details, null, 2)}</pre>
             </details>
           ) : null}
+        </section>
+      )}
+
+      {showIntervenant && (
+        <section style={{ marginTop: 16 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600 }}>cases:dossiersOuJeSuisIntervenant</h2>
+          <QueryErrorBoundary>
+            <IntervenantResult />
+          </QueryErrorBoundary>
         </section>
       )}
     </main>
@@ -135,6 +151,39 @@ function preStyle(error: boolean): React.CSSProperties {
     overflow: "auto",
     maxHeight: 400,
   };
+}
+
+// Erreurs de useQuery = throw au rendu → boundary local pour afficher
+// la ConvexError (forbidden / no_secib_intervenant_id) au lieu de
+// crasher la page.
+class QueryErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <pre style={{ color: "#b00020", whiteSpace: "pre-wrap", fontSize: 13 }}>
+          {this.state.error.message}
+        </pre>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function IntervenantResult() {
+  const data = useQuery(dossiersIntervenantQuery, {});
+  if (data === undefined) return <p>Loading…</p>;
+  return (
+    <pre style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>
+      {JSON.stringify(data, null, 2)}
+    </pre>
+  );
 }
 
 export default function DossiersPlaygroundPage() {

@@ -66,9 +66,12 @@ export default defineSchema({
       ),
     ),
 
-    // Calculs financiers (cents = entiers)
-    principalCents: v.number(),
-    principalDateExigibilite: v.number(),
+    // Calculs financiers (cents = entiers).
+    // Requis fonctionnellement pour les cases créées par le wizard S3 ;
+    // absents sur les dossiers importés de SECIB (montant inconnu —
+    // ne JAMAIS défaulter à 0 : fausserait intérêts et stats).
+    principalCents: v.optional(v.number()),
+    principalDateExigibilite: v.optional(v.number()),
     article700Cents: v.optional(v.number()),
     interetsLegauxFromYearMonth: v.optional(v.number()),
 

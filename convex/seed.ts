@@ -365,6 +365,70 @@ export const seedSyndicTestUser = internalMutation({
 });
 
 // ─────────────────────────────────────────────────────────────────
+// upsertSyndicOrg — crée l'org Convex d'un syndic pilote, ou promeut
+// une org existante (cas : org de test S2B → org réelle). Lookup par
+// by_secib_personne pour que la promotion conserve le même _id (les
+// users/cases déjà rattachés restent valides).
+// ─────────────────────────────────────────────────────────────────
+export const upsertSyndicOrg = internalMutation({
+  args: {
+    logtoOrgId: v.string(),
+    name: v.string(),
+    secibSyndicPersonneId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("organizations")
+      .withIndex("by_secib_personne", (q) =>
+        q.eq("secibSyndicPersonneId", args.secibSyndicPersonneId),
+      )
+      .unique();
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        kind: "syndic",
+        name: args.name,
+        logtoOrgId: args.logtoOrgId,
+      });
+      return { organizationId: existing._id, action: "promoted" };
+    }
+    const organizationId = await ctx.db.insert("organizations", {
+      kind: "syndic",
+      name: args.name,
+      logtoOrgId: args.logtoOrgId,
+      secibSyndicPersonneId: args.secibSyndicPersonneId,
+      createdAt: Date.now(),
+    });
+    return { organizationId, action: "created" };
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────
+// setUserSecibIntervenantId — mappe un compte avocat/admin sur son
+// intervenant SECIB (Responsable.UtilisateurId, ex. "3" = Nancy).
+// Prérequis de cases.dossiersOuJeSuisIntervenant. Le provisioning S3
+// posera ce champ à la création des comptes avocats.
+// ─────────────────────────────────────────────────────────────────
+export const setUserSecibIntervenantId = internalMutation({
+  args: { logtoUserId: v.string(), secibIntervenantId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_logto_user", (q) => q.eq("logtoUserId", args.logtoUserId))
+      .unique();
+    if (!user) {
+      throw new ConvexError({
+        code: "seed.user_not_found",
+        message: `No provisioned user for logtoUserId ${args.logtoUserId}.`,
+      });
+    }
+    await ctx.db.patch(user._id, {
+      secibIntervenantId: args.secibIntervenantId,
+    });
+    return { userId: user._id };
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────
 // insertExpiredDraftFixture — draft expiré pour valider le cron
 // casedrafts-cleanup (S2c). Rattaché au premier user provisionné.
 // ─────────────────────────────────────────────────────────────────
