@@ -58,6 +58,8 @@ function PlaygroundContent() {
           </div>
         )}
         <div style={{ marginTop: 8 }}>
+          {/* API route handler (302 redirect), not a page — Link would prefetch it */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/api/logto/sign-out" style={{ fontSize: 13, color: "#666" }}>Sign out</a>
         </div>
       </section>
@@ -147,6 +149,8 @@ export default function DossiersPlaygroundPage() {
         <main style={{ maxWidth: 900, margin: "2rem auto", padding: "0 1rem" }}>
           <h1 style={{ fontSize: 24, fontWeight: 600 }}>SECIB Actions Playground</h1>
           <p style={{ marginTop: 16 }}>You must sign in to test the SECIB actions.</p>
+          {/* API route handler (302 redirect), not a page — Link would prefetch it */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/api/logto/sign-in" style={{ display: "inline-block", marginTop: 16, padding: "8px 16px", background: "#1e40af", color: "white", borderRadius: 6, textDecoration: "none" }}>Sign in</a>
         </main>
       </Unauthenticated>
