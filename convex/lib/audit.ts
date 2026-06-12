@@ -98,3 +98,22 @@ export async function withAuditLog<T>(
     throw error;
   }
 }
+
+// ─────────────────────────────────────────────────────────────────
+// cronRunRow — ligne auditLogs pour une exécution de cron système.
+// Retourne l'objet row : les mutations l'insèrent via ctx.db.insert,
+// les actions via ctx.runMutation(internal.auditLogs.append, row).
+// withAuditLog (user-centric) n'est pas concerné.
+// ─────────────────────────────────────────────────────────────────
+export function cronRunRow(
+  job: string,
+  outcome: "completed" | "failed",
+  metadata?: Record<string, unknown>,
+) {
+  return {
+    actorLogtoUserId: "system:cron",
+    actorRole: "system",
+    action: `cron.${job}.${outcome}`,
+    metadata,
+  };
+}
