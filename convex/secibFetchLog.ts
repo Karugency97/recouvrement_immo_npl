@@ -9,7 +9,7 @@ export const append = internalMutation({
     requestParams: v.optional(v.any()),
     responsePayload: v.any(),
     status: v.number(),
-    fetchedByUserId: v.id("users"),
+    fetchedByUserId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("secibFetchLog", {

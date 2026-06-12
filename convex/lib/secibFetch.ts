@@ -2,8 +2,14 @@
 
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
-import type { AuditContext } from "./audit";
+import type { Id } from "../_generated/dataModel";
 import { secibError, secibApiKeyMissing } from "./errors";
+
+// secibFetch n'a besoin que de l'identité du fetcher pour le log.
+// AuditContext (user) la satisfait structurellement ; SYSTEM_FETCH_ACTOR
+// est l'acteur des crons (pas d'utilisateur → fetchedByUserId omis).
+export type FetchActor = { userId?: Id<"users"> };
+export const SYSTEM_FETCH_ACTOR: FetchActor = {};
 
 const SECIB_BASE_URL =
   process.env.SECIB_GATEWAY_BASE_URL ?? "https://apisecib.nplavocat.com/api/v1";
@@ -37,7 +43,7 @@ export type SecibFetchOpts = {
 
 export async function secibFetch<T = unknown>(
   ctx: ActionCtx,
-  audit: AuditContext,
+  audit: FetchActor,
   opts: SecibFetchOpts,
 ): Promise<T> {
   const method = opts.method ?? "GET";
