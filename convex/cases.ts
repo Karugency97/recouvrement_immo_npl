@@ -37,8 +37,19 @@ export const upsertFromSecib = internalMutation({
       .unique();
 
     if (existing) {
+      // Patch champ par champ, PAS de spread : undefined est strippé à la
+      // frontière runMutation, mais un undefined EXPLICITE dans db.patch
+      // désactive le champ — requis pour qu'un Responsable retiré dans
+      // SECIB révoque bien l'accès (secibIntervenantId porte le scoping).
+      // organizationId est aussi SECIB-derived : un dossier transféré de
+      // syndic suit son nouveau syndic au re-import.
       await ctx.db.patch(existing._id, {
-        ...args.snapshot,
+        organizationId: args.organizationId,
+        secibDossierId: args.snapshot.secibDossierId,
+        secibLibelle: args.snapshot.secibLibelle,
+        secibCodeMatiere: args.snapshot.secibCodeMatiere,
+        secibDateOuverture: args.snapshot.secibDateOuverture,
+        secibIntervenantId: args.snapshot.secibIntervenantId,
         secibSnapshotAt: now,
         updatedAt: now,
       });

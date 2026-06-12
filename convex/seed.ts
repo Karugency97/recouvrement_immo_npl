@@ -385,6 +385,7 @@ export const upsertSyndicOrg = internalMutation({
       .unique();
     if (existing) {
       await ctx.db.patch(existing._id, {
+        kind: "syndic",
         name: args.name,
         logtoOrgId: args.logtoOrgId,
       });

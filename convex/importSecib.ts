@@ -15,6 +15,14 @@ import { cronRunRow } from "./lib/audit";
 // dans secibFetchLog, le run dans auditLogs (job import-secib-dossiers).
 // ─────────────────────────────────────────────────────────────────
 
+// TypePartieId 1 = client (référentiel SECIB) — on n'importe que les
+// dossiers où le syndic est partie cliente.
+const TYPE_PARTIE_CLIENT = 1;
+
+// Plancher de validité pour DateCreation : les APIs .NET émettent
+// "0001-01-01T00:00:00" pour les dates vides — Date.parse l'accepte.
+const MIN_VALID_DATE_MS = Date.UTC(1990, 0, 1);
+
 // Réponses gateway : enveloppées { data: T }.
 type PartiesResponse = {
   data?: Array<{ Dossier: { DossierId: number }; TypePartieId: number }>;
@@ -41,95 +49,111 @@ export const runForSyndic = internalAction({
     skippedArchived: number;
     failed: Record<string, string>;
   }> => {
-    const org = await ctx.runQuery(internal.organizations.getBySecibPersonneId, {
-      secibSyndicPersonneId: args.secibSyndicPersonneId,
-    });
-    if (!org) {
-      throw new ConvexError({
-        code: "import.org_not_found",
-        message: `No organization with secibSyndicPersonneId ${args.secibSyndicPersonneId}. Run seed:upsertSyndicOrg first.`,
-      });
-    }
-    const author = await ctx.runQuery(internal.users.getFirstNplAdmin, {});
-    if (!author) {
-      throw new ConvexError({
-        code: "import.no_npl_admin",
-        message: "No npl_admin user provisioned — needed as import author.",
-      });
-    }
-
-    // 1. Dossiers où le syndic est partie, filtrés client (TypePartieId 1),
-    //    dédoublonnés (un dossier peut porter plusieurs parties parent/enfant).
-    const parties = await secibFetch<PartiesResponse>(ctx, SYSTEM_FETCH_ACTOR, {
-      endpoint: `/personnes/${args.secibSyndicPersonneId}/dossiers`,
-      targetType: "personne_dossiers",
-      targetId: args.secibSyndicPersonneId,
-    });
-    const dossierIds = [
-      ...new Set(
-        (parties.data ?? [])
-          .filter((p) => p.TypePartieId === 1)
-          .map((p) => p.Dossier.DossierId),
-      ),
-    ];
-
-    // 2. Détail par dossier — erreur isolée par dossier (pattern S2c).
-    let imported = 0;
-    let updated = 0;
-    let skippedArchived = 0;
-    const failed: Record<string, string> = {};
-
-    for (const dossierId of dossierIds) {
-      try {
-        const detail = await secibFetch<DetailResponse>(ctx, SYSTEM_FETCH_ACTOR, {
-          endpoint: `/dossiers/${dossierId}`,
-          targetType: "dossier",
-          targetId: String(dossierId),
-        });
-        const d = detail.data;
-        if (!d) throw new Error("empty detail payload");
-        if (d.IsArchive) {
-          skippedArchived += 1;
-          continue;
-        }
-        const parsedDate = d.DateCreation ? Date.parse(d.DateCreation) : NaN;
-        const result = await ctx.runMutation(internal.cases.upsertFromSecib, {
-          organizationId: org._id,
-          authorUserId: author._id,
-          snapshot: {
-            secibDossierId: String(d.DossierId),
-            secibLibelle: d.Nom,
-            secibCodeMatiere: d.Matiere
-              ? String(d.Matiere.MatiereId)
-              : undefined,
-            secibDateOuverture: Number.isNaN(parsedDate)
-              ? undefined
-              : parsedDate,
-            secibIntervenantId: d.Responsable
-              ? String(d.Responsable.UtilisateurId)
-              : undefined,
-          },
-        });
-        if (result === "inserted") imported += 1;
-        else updated += 1;
-      } catch (error) {
-        failed[String(dossierId)] =
-          error instanceof Error ? error.message.slice(0, 200) : String(error);
-      }
-    }
-
-    const outcome = Object.keys(failed).length === 0 ? "completed" : "failed";
-    await ctx.runMutation(
-      internal.auditLogs.append,
-      cronRunRow("import-secib-dossiers", outcome, {
+    try {
+      const org = await ctx.runQuery(internal.organizations.getBySecibPersonneId, {
         secibSyndicPersonneId: args.secibSyndicPersonneId,
-        imported,
-        updated,
-        skippedArchived,
-        failed,
-      }),
-    );
+      });
+      if (!org) {
+        throw new ConvexError({
+          code: "import.org_not_found",
+          message: `No organization with secibSyndicPersonneId ${args.secibSyndicPersonneId}. Run seed:upsertSyndicOrg first.`,
+        });
+      }
+      const author = await ctx.runQuery(internal.users.getFirstNplAdmin, {});
+      if (!author) {
+        throw new ConvexError({
+          code: "import.no_npl_admin",
+          message: "No npl_admin user provisioned — needed as import author.",
+        });
+      }
 
-    return { imported, updated, skippedArchived, failed };
+      // 1. Dossiers où le syndic est partie, filtrés client (TypePartieId 1),
+      //    dédoublonnés (un dossier peut porter plusieurs parties parent/enfant).
+      const parties = await secibFetch<PartiesResponse>(ctx, SYSTEM_FETCH_ACTOR, {
+        endpoint: `/personnes/${args.secibSyndicPersonneId}/dossiers`,
+        targetType: "personne_dossiers",
+        targetId: args.secibSyndicPersonneId,
+      });
+      const dossierIds = [
+        ...new Set(
+          (parties.data ?? [])
+            .filter((p) => p.TypePartieId === TYPE_PARTIE_CLIENT)
+            .map((p) => p.Dossier.DossierId),
+        ),
+      ];
+
+      // 2. Détail par dossier — erreur isolée par dossier (pattern S2c).
+      let imported = 0;
+      let updated = 0;
+      let skippedArchived = 0;
+      const failed: Record<string, string> = {};
+
+      for (const dossierId of dossierIds) {
+        try {
+          const detail = await secibFetch<DetailResponse>(ctx, SYSTEM_FETCH_ACTOR, {
+            endpoint: `/dossiers/${dossierId}`,
+            targetType: "dossier",
+            targetId: String(dossierId),
+          });
+          const d = detail.data;
+          if (!d) throw new Error("empty detail payload");
+          if (d.IsArchive) {
+            skippedArchived += 1;
+            continue;
+          }
+          const rawDate = d.DateCreation ? Date.parse(d.DateCreation) : NaN;
+          const parsedDate =
+            Number.isNaN(rawDate) || rawDate < MIN_VALID_DATE_MS ? NaN : rawDate;
+          const result = await ctx.runMutation(internal.cases.upsertFromSecib, {
+            organizationId: org._id,
+            authorUserId: author._id,
+            snapshot: {
+              secibDossierId: String(d.DossierId),
+              secibLibelle: d.Nom,
+              secibCodeMatiere: d.Matiere
+                ? String(d.Matiere.MatiereId)
+                : undefined,
+              secibDateOuverture: Number.isNaN(parsedDate)
+                ? undefined
+                : parsedDate,
+              secibIntervenantId: d.Responsable
+                ? String(d.Responsable.UtilisateurId)
+                : undefined,
+            },
+          });
+          if (result === "inserted") imported += 1;
+          else updated += 1;
+        } catch (error) {
+          failed[String(dossierId)] =
+            error instanceof Error ? error.message.slice(0, 200) : String(error);
+        }
+      }
+
+      const outcome = Object.keys(failed).length === 0 ? "completed" : "failed";
+      await ctx.runMutation(
+        internal.auditLogs.append,
+        cronRunRow("import-secib-dossiers", outcome, {
+          secibSyndicPersonneId: args.secibSyndicPersonneId,
+          imported,
+          updated,
+          skippedArchived,
+          failed,
+        }),
+      );
+
+      return { imported, updated, skippedArchived, failed };
+    } catch (error) {
+      // Échec avant/pendant la boucle (org absente, gateway down sur la
+      // liste…) : tracer quand même le run — l'audit doit être complet.
+      await ctx.runMutation(
+        internal.auditLogs.append,
+        cronRunRow("import-secib-dossiers", "failed", {
+          secibSyndicPersonneId: args.secibSyndicPersonneId,
+          error:
+            error instanceof Error ? error.message.slice(0, 200) : String(error),
+        }),
+      );
+      throw error;
+    }
   },
 });
