@@ -15,6 +15,19 @@ export const getByLogtoId = internalQuery({
   },
 });
 
+// Premier user npl_admin — auteur technique des cases importées de SECIB
+// (authorUserId est requis au schéma ; l'import n'a pas d'auteur humain).
+// Pas d'index sur role : table users minuscule, filter acceptable.
+export const getFirstNplAdmin = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("role"), "npl_admin"))
+      .first();
+  },
+});
+
 // Public query — returns the calling user's identity + role + org name.
 // Used by the /convex-poc/dossiers playground to show "Connected as X, role Y".
 // Returns null if the caller is unauthenticated OR not provisioned.
