@@ -24,11 +24,15 @@ export async function GET(
 
   switch (action) {
     case "sign-in": {
-      await signIn(logtoConfig);
+      // @logto/next defaults to `${baseUrl}/callback`; our handler (and the
+      // redirect URI registered in Logto) lives at /api/logto/callback.
+      await signIn(logtoConfig, { redirectUri: `${origin}/api/logto/callback` });
       return NextResponse.json({ status: "redirecting" });
     }
     case "callback": {
-      await handleSignIn(logtoConfig, request.nextUrl.searchParams);
+      // Pass the full URL (not just searchParams) so the SDK verifies the
+      // callback against /api/logto/callback instead of the default /callback.
+      await handleSignIn(logtoConfig, new URL(request.url));
       redirect("/");
     }
     case "sign-out": {
