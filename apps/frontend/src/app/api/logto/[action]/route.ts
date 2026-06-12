@@ -33,7 +33,9 @@ export async function GET(
       // Pass the full URL (not just searchParams) so the SDK verifies the
       // callback against /api/logto/callback instead of the default /callback.
       await handleSignIn(logtoConfig, new URL(request.url));
-      redirect("/");
+      // "/" is still guarded by the legacy Directus middleware (redirects to
+      // its own /login) — land on the Convex playground instead.
+      redirect("/convex-poc/dossiers");
     }
     case "sign-out": {
       await signOut(logtoConfig, origin);
