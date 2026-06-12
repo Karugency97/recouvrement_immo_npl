@@ -7,11 +7,10 @@ export default {
     {
       // Logto NPL OIDC issuer (self-hosted on Coolify, Coolify project NPL)
       domain: process.env.LOGTO_ISSUER_URL ?? "https://auth.nplavocat.com/oidc",
-      // Convex API resource indicator declared in Logto NPL
-      // (see Logto admin → Resources → "Convex Immonpl API" id: ezx5hqihw9z9fo4pqnvus)
-      applicationID:
-        process.env.CONVEX_RESOURCE_INDICATOR ??
-        "https://convex.immo.nplavocat.com",
+      // We validate Logto ID tokens (aud = the Traditional Web App id), not
+      // resource access tokens: Logto access tokens have `typ: at+jwt`, which
+      // convex-backend's OIDC verifier rejects (get-convex/convex-backend#75).
+      applicationID: process.env.LOGTO_APP_ID ?? "ky0iisybs0g3l7avvju4y",
     },
   ],
 };

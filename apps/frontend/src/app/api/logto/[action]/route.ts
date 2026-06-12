@@ -24,12 +24,18 @@ export async function GET(
 
   switch (action) {
     case "sign-in": {
-      await signIn(logtoConfig);
+      // @logto/next defaults to `${baseUrl}/callback`; our handler (and the
+      // redirect URI registered in Logto) lives at /api/logto/callback.
+      await signIn(logtoConfig, { redirectUri: `${origin}/api/logto/callback` });
       return NextResponse.json({ status: "redirecting" });
     }
     case "callback": {
-      await handleSignIn(logtoConfig, request.nextUrl.searchParams);
-      redirect("/");
+      // Pass the full URL (not just searchParams) so the SDK verifies the
+      // callback against /api/logto/callback instead of the default /callback.
+      await handleSignIn(logtoConfig, new URL(request.url));
+      // "/" is still guarded by the legacy Directus middleware (redirects to
+      // its own /login) — land on the Convex playground instead.
+      redirect("/convex-poc/dossiers");
     }
     case "sign-out": {
       await signOut(logtoConfig, origin);
