@@ -363,3 +363,30 @@ export const seedSyndicTestUser = internalMutation({
     };
   },
 });
+
+// ─────────────────────────────────────────────────────────────────
+// insertExpiredDraftFixture — draft expiré pour valider le cron
+// casedrafts-cleanup (S2c). Rattaché au premier user provisionné.
+// ─────────────────────────────────────────────────────────────────
+export const insertExpiredDraftFixture = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await ctx.db.query("users").first();
+    if (!user) {
+      throw new ConvexError({
+        code: "seed.no_user",
+        message: "Provision a user first (seed:provisionNplUser).",
+      });
+    }
+    const draftId = await ctx.db.insert("caseDrafts", {
+      organizationId: user.organizationId,
+      authorUserId: user._id,
+      casSpecial: [],
+      currentStep: "fixture",
+      wizardData: { fixture: "s2c-expired-draft" },
+      updatedAt: Date.now() - 31 * 24 * 60 * 60 * 1000,
+      expiresAt: Date.now() - 24 * 60 * 60 * 1000, // expiré depuis hier
+    });
+    return { draftId };
+  },
+});
