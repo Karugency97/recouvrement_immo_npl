@@ -252,7 +252,8 @@ export default defineSchema({
     responsePayload: v.any(),
     status: v.number(),
     fetchedAt: v.number(),
-    fetchedByUserId: v.id("users"),
+    // Optionnel : les fetchs des crons système n'ont pas d'utilisateur.
+    fetchedByUserId: v.optional(v.id("users")),
   })
     .index("by_target", ["targetType", "targetId", "fetchedAt"])
     .index("by_endpoint_time", ["endpoint", "fetchedAt"])
