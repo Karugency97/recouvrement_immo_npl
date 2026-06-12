@@ -15,6 +15,11 @@ import { CONVEX_RESOURCE_INDICATOR, logtoConfig } from "@/lib/logto";
 // This page is intentionally not styled. It exists to validate wiring,
 // not to ship UX. The real portails (S3–S5) will replace it.
 
+// Session-bound page: never prerender it. At build time the Logto secrets
+// (runtime-only env) are absent and getLogtoContext throws before reaching
+// the cookies() dynamic bailout, failing `next build`.
+export const dynamic = "force-dynamic";
+
 // Convex codegen needs CONVEX_SELF_HOSTED_ADMIN_KEY which we don't have at
 // build time, so we reference the action by string instead of via api.secib.
 // Replace with `import { api } from "@/../convex/_generated/api"` once
