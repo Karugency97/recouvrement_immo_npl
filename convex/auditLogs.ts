@@ -7,9 +7,10 @@ import { v } from "convex/values";
 export const append = internalMutation({
   args: {
     actorLogtoUserId: v.string(),
-    actorUserId: v.id("users"),
+    // Optionnels : les lignes système (crons) n'ont ni user ni org.
+    actorUserId: v.optional(v.id("users")),
     actorRole: v.string(),
-    actorOrganizationId: v.id("organizations"),
+    actorOrganizationId: v.optional(v.id("organizations")),
     action: v.string(),
     targetType: v.optional(v.string()),
     targetId: v.optional(v.string()),
