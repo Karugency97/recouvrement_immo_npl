@@ -29,12 +29,13 @@ export function notProvisioned(
 export function forbidden(
   role: string,
   allowed: readonly string[],
-): ConvexError<{ code: string; message: string; role: string; allowed: readonly string[] }> {
+): ConvexError<{ code: string; message: string; role: string; allowed: string[] }> {
   return new ConvexError({
     code: "auth.forbidden",
     message: `Role "${role}" is not authorized for this action. Allowed: ${allowed.join(", ")}.`,
     role,
-    allowed,
+    // ConvexError payloads must be Convex Values — readonly arrays are not assignable
+    allowed: [...allowed],
   });
 }
 

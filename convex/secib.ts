@@ -112,7 +112,10 @@ export const dossiersRechercher = action({
 // ─────────────────────────────────────────────────────────────────
 export const dossiersDuSyndic = action({
   args: {},
-  handler: async (ctx) => {
+  // Explicit return type breaks the circular inference through `internal`
+  // (this action calls internal.organizations.getById, and `internal` includes
+  // this very module's types).
+  handler: async (ctx): Promise<unknown> => {
     return await withAuditLog(
       ctx,
       { action: "secib.dossiers_du_syndic" },
