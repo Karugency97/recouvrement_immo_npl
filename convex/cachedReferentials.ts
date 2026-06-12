@@ -6,7 +6,7 @@ import { v } from "convex/values";
 
 const TTL_MS = 25 * 60 * 60 * 1000; // 25h — couvre un cron raté sans trou de cache
 
-export const kindValidator = v.union(
+const kindValidator = v.union(
   v.literal("CODES_ACTIVITES"),
   v.literal("CODES_FACTURATION"),
   v.literal("MATIERES_CONTENTIEUX"),

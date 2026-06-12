@@ -3,6 +3,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { cronRunRow } from "./lib/audit";
 
+// fetchedAt doit rester assigné serveur (Date.now() dans le handler) : purgeOld s'appuie sur fetchedAt ≈ _creationTime pour son early-break.
 export const append = internalMutation({
   args: {
     endpoint: v.string(),
@@ -42,17 +43,17 @@ export const purgeOld = internalMutation({
       .take(BATCH_SIZE);
 
     let deleted = args.deletedSoFar ?? 0;
-    let pageExhausted = true;
+    let everyDocExpired = true;
     for (const doc of oldest) {
       if (doc.fetchedAt >= cutoff) {
-        pageExhausted = false;
+        everyDocExpired = false;
         break;
       }
       await ctx.db.delete(doc._id);
       deleted += 1;
     }
 
-    if (pageExhausted && oldest.length === BATCH_SIZE) {
+    if (everyDocExpired && oldest.length === BATCH_SIZE) {
       await ctx.scheduler.runAfter(0, internal.secibFetchLog.purgeOld, {
         deletedSoFar: deleted,
       });

@@ -52,7 +52,9 @@ export const refreshAll = internalAction({
       }
     }
 
-    const outcome = refreshed.length > 0 ? "completed" : "failed";
+    // Tout échec partiel se logue .failed — le monitoring surveille les rows
+    // .failed ; metadata.refreshed garde le détail du succès partiel.
+    const outcome = Object.keys(failed).length === 0 ? "completed" : "failed";
     await ctx.runMutation(
       internal.auditLogs.append,
       cronRunRow("referentials-refresh", outcome, { refreshed, failed }),

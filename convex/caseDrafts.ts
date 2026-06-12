@@ -8,7 +8,7 @@ import { cronRunRow } from "./lib/audit";
 // expiresAt = 30j après le dernier update (posé à l'écriture par le
 // portail, S3). Le cron casedrafts-cleanup purge les expirés chaque nuit.
 // Batch de 500 + re-planification : aucune mutation ne touche plus de
-// 500 docs (limites Convex), idempotent si relancé.
+// 500 docs (marge sous la limite Convex de 8192 writes/mutation), idempotent si relancé.
 // ─────────────────────────────────────────────────────────────────
 
 const BATCH_SIZE = 500;
