@@ -105,6 +105,24 @@ export default defineSchema({
       }),
     ),
 
+    // ── Wizard syndic (S3b) — un dossier créé au portail, en attente de
+    // contrôle + push SECIB par le cabinet (S5). Tous optionnels : les
+    // cases importés de SECIB ne les portent pas.
+    debiteur: v.optional(
+      v.object({
+        type: v.union(v.literal("PP"), v.literal("PM")),
+        nom: v.string(),
+        adresse: v.optional(v.string()),
+        email: v.optional(v.string()),
+        telephone: v.optional(v.string()),
+        lotDescription: v.optional(v.string()),
+      }),
+    ),
+    periodeDebut: v.optional(v.number()),
+    periodeFin: v.optional(v.number()),
+    nbRelances: v.optional(v.number()),
+    observations: v.optional(v.string()),
+    pendingSecibPush: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -115,7 +133,8 @@ export default defineSchema({
     .index("by_org_status", ["organizationId", "status", "statusChangedAt"])
     .index("by_status", ["status"])
     .index("by_secib_dossier", ["secibDossierId"])
-    .index("by_secib_intervenant", ["secibIntervenantId"]),
+    .index("by_secib_intervenant", ["secibIntervenantId"])
+    .index("by_pending_push", ["pendingSecibPush"]),
 
   caseDrafts: defineTable({
     organizationId: v.id("organizations"),
