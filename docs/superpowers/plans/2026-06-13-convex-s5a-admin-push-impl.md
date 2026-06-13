@@ -2204,11 +2204,11 @@ Expected : le dossier existe, Nom = « TEST PUSH … — recouvrement charges »
 
 Re-pousser le même dossier (rouvrir l'onglet SECIB) → le panneau affiche « Déjà dans SECIB — dossier {id} » et `runPush` refuse (`push.already_done`). Vérifier `auditLogs` : `secib.run_push.succeeded` une seule fois pour ce case.
 
-- [ ] **Step 7: Non-régression portail syndic**
+- [x] **Step 7: Non-régression portail syndic**
 
 Vérifier que le portail syndic (S3a-c) marche toujours : dashboard, liste, détail (Infos/Documents/Suivi/Messages), wizard, messagerie. 0 erreur console.
 
-- [ ] **Step 8: Nettoyage sandbox**
+- [x] **Step 8: Nettoyage sandbox**
 
 Le dossier SECIB de test créé à l'étape 5 peut être laissé (sandbox) ou signalé au cabinet pour suppression. Noter le DossierId créé dans le récap de PR.
 
@@ -2247,7 +2247,7 @@ EOF
 )" 2>&1 | tail -5
 ```
 
-- [ ] **Step 2: Final review handoff**
+- [x] **Step 2: Final review handoff**
 
 Dispatcher un Code Reviewer sur l'ensemble du diff de la branche (spec-compliance + qualité), puis présenter le résultat à l'utilisateur pour merge.
 
