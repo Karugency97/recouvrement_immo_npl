@@ -1,5 +1,6 @@
 import { internalMutation, internalQuery, query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
+import { internal } from "./_generated/api";
 import {
   requireRoleQuery,
   requireRoleMutation,
@@ -196,5 +197,60 @@ export const getByIdForCabinet = query({
     if (!c) return null;
     const org = await ctx.db.get(c.organizationId);
     return { ...c, organizationName: org?.name ?? "—" };
+  },
+});
+
+// Union des 9 statuts — dupliqué du schéma pour valider l'argument côté
+// mutation (le schéma n'exporte pas son union). Garder synchro avec
+// convex/schema.ts cases.status.
+const statusValidator = v.union(
+  v.literal("CREE"),
+  v.literal("EN_ATTENTE_PIECES"),
+  v.literal("PRET"),
+  v.literal("MISE_EN_DEMEURE_ENVOYEE"),
+  v.literal("INJONCTION_DE_PAYER"),
+  v.literal("ASSIGNATION_AU_FOND"),
+  v.literal("JUGEMENT_OBTENU"),
+  v.literal("CLOTURE"),
+  v.literal("SUSPENDU"),
+);
+
+// Changement de statut par le cabinet. Transition libre (le cabinet sait
+// ce qu'il fait — pas de machine à états contraignante en S5a). Pose
+// previousStatus / statusChangedAt / statusChangedByUserId + trace audit.
+// No-op silencieux si le statut est inchangé (évite une ligne d'audit vide).
+export const setStatus = mutation({
+  args: { caseId: v.id("cases"), status: statusValidator },
+  handler: async (ctx, args): Promise<{ changed: boolean }> => {
+    const user = await requireRoleMutation(ctx, NPL_FULL_ACCESS_ROLES);
+    const caseDoc = await ctx.db.get(args.caseId);
+    if (!caseDoc) {
+      throw new ConvexError({
+        code: "case.not_found",
+        message: `Case ${args.caseId} introuvable.`,
+      });
+    }
+    if (caseDoc.status === args.status) {
+      return { changed: false };
+    }
+    const now = Date.now();
+    await ctx.db.patch(args.caseId, {
+      previousStatus: caseDoc.status,
+      status: args.status,
+      statusChangedAt: now,
+      statusChangedByUserId: user._id,
+      updatedAt: now,
+    });
+    await ctx.runMutation(internal.auditLogs.append, {
+      actorLogtoUserId: user.logtoUserId,
+      actorUserId: user._id,
+      actorRole: user.role,
+      actorOrganizationId: user.organizationId,
+      action: "case.status_changed",
+      targetType: "case",
+      targetId: args.caseId,
+      metadata: { from: caseDoc.status, to: args.status },
+    });
+    return { changed: true };
   },
 });
