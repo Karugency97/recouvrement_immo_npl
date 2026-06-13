@@ -1,6 +1,6 @@
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { NPL_FULL_ACCESS_ROLES } from "./auth";
+import { NPL_FULL_ACCESS_ROLES, SYNDIC_ROLES } from "./auth";
 import { forbidden } from "./errors";
 
 // ─────────────────────────────────────────────────────────────────
@@ -9,19 +9,23 @@ import { forbidden } from "./errors";
 // Rôles NPL full access (admin/assistant) : accès total. Syndic : le case
 // doit appartenir à son org. Retourne le case chargé.
 // ─────────────────────────────────────────────────────────────────
+// ⚠ S5 : cette garde scope par organizationId (modèle syndic). Un avocat
+// (npl_avocat) n'a PAS d'org syndic — il est scopé par secibIntervenantId.
+// NE PAS ajouter npl_avocat aux READ_ROLES de messages.byCase sans étendre
+// cette garde au modèle intervenant, sinon il serait rejeté à tort.
 
 function check(
   caseDoc: Doc<"cases"> | null,
   user: { role: string; organizationId: Id<"organizations"> },
 ): Doc<"cases"> {
   if (!caseDoc) {
-    throw forbidden(user.role, NPL_FULL_ACCESS_ROLES);
+    throw forbidden(user.role, SYNDIC_ROLES);
   }
   const isNplFull = (NPL_FULL_ACCESS_ROLES as readonly string[]).includes(
     user.role,
   );
   if (!isNplFull && caseDoc.organizationId !== user.organizationId) {
-    throw forbidden(user.role, NPL_FULL_ACCESS_ROLES);
+    throw forbidden(user.role, SYNDIC_ROLES);
   }
   return caseDoc;
 }

@@ -11,6 +11,17 @@ import { v } from "convex/values";
 // impactée. Un email raté ne throw jamais (côté appelant = scheduler).
 // ─────────────────────────────────────────────────────────────────
 
+// secibLibelle (import SECIB) et message.body (texte libre syndic) sont
+// injectés dans l'HTML de l'email — échapper pour éviter markup cassé /
+// injection dans le client mail du cabinet.
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 async function auditEmail(
   ctx: ActionCtx,
   outcome: "sent" | "skipped" | "failed",
@@ -57,7 +68,7 @@ export const sendEmail = internalAction({
       return { sent: true };
     } catch (error) {
       await auditEmail(ctx, "failed", {
-        error: error instanceof Error ? error.message.slice(0, 200) : String(error),
+        error: (error instanceof Error ? error.message : String(error)).slice(0, 200),
       });
       return { sent: false };
     }
@@ -79,9 +90,16 @@ export const notifyNewMessage = internalAction({
     const caseDoc = await ctx.runQuery(internal.cases.getByIdInternal, {
       caseId: args.caseId,
     });
-    if (!message || !caseDoc) return;
-    const libelle = caseDoc.secibLibelle ?? "Dossier";
-    const extrait = message.body.slice(0, 300);
+    if (!message || !caseDoc) {
+      await auditEmail(ctx, "skipped", {
+        reason: "message_or_case_missing",
+        messageId: args.messageId,
+        caseId: args.caseId,
+      });
+      return;
+    }
+    const libelle = escapeHtml(caseDoc.secibLibelle ?? "Dossier");
+    const extrait = escapeHtml(message.body.slice(0, 300));
     const url = `https://immo.nplavocat.com/dossiers/${args.caseId}`;
     await ctx.runAction(internal.email.sendEmail, {
       to,
