@@ -254,3 +254,28 @@ export const setStatus = mutation({
     return { changed: true };
   },
 });
+
+// Applique le résultat d'un push SECIB réussi (appelée par secibPush.runPush
+// après création complète Personne+Dossier+Parties). Patch le snapshot SECIB
+// et lève le flag pendingSecibPush. Internal : jamais appelée par le client.
+export const applyPushResult = internalMutation({
+  args: {
+    caseId: v.id("cases"),
+    secibDossierId: v.string(),
+    secibLibelle: v.string(),
+    secibCodeMatiere: v.string(),
+    secibIntervenantId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    await ctx.db.patch(args.caseId, {
+      secibDossierId: args.secibDossierId,
+      secibLibelle: args.secibLibelle,
+      secibCodeMatiere: args.secibCodeMatiere,
+      secibIntervenantId: args.secibIntervenantId,
+      secibSnapshotAt: now,
+      pendingSecibPush: false,
+      updatedAt: now,
+    });
+  },
+});
