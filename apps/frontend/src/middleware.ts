@@ -5,8 +5,7 @@ import { logtoConfig } from "@/lib/logto";
 
 const publicPaths = ["/login", "/forgot-password"];
 
-// Routes sous auth Logto/Convex. (client) est réécrit sur Convex (S3a) ;
-// (admin) reste sous Directus jusqu'à S5.
+// Routes sous auth Logto/Convex. (client) ET (admin) sont sur Convex.
 const logtoPaths = [
   "/convex-poc",
   "/dashboard",
@@ -14,6 +13,7 @@ const logtoPaths = [
   "/documents",
   "/messagerie",
   "/parametres",
+  "/admin",
 ];
 
 const logtoClient = new LogtoClient(logtoConfig);
@@ -72,13 +72,6 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
-  }
-
-  // Role-based route protection (Directus — admin portal only)
-  const userRole = request.cookies.get("user_role")?.value;
-
-  if (userRole === "syndic" && pathname.startsWith("/admin")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();

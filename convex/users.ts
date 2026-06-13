@@ -54,3 +54,24 @@ export const me = query({
     };
   },
 });
+
+// Emails des utilisateurs syndic d'une org — destinataires de la
+// notification "réponse du cabinet" (S5a). Internal : appelée par l'action
+// email. Filtre sur les rôles syndic (un npl_* rattaché à l'org ne doit
+// pas recevoir la notif destinée au syndic).
+export const syndicEmailsForOrg = internalQuery({
+  args: { organizationId: v.id("organizations") },
+  handler: async (ctx, args) => {
+    const users = await ctx.db
+      .query("users")
+      .withIndex("by_organization", (q) =>
+        q.eq("organizationId", args.organizationId),
+      )
+      .collect();
+    return users
+      .filter(
+        (u) => u.role === "syndic_admin" || u.role === "syndic_gestionnaire",
+      )
+      .map((u) => u.email);
+  },
+});

@@ -1,6 +1,12 @@
-import { internalMutation, internalQuery, query } from "./_generated/server";
-import { v } from "convex/values";
-import { requireRoleQuery, SYNDIC_ROLES } from "./lib/auth";
+import { internalMutation, internalQuery, query, mutation } from "./_generated/server";
+import { v, ConvexError } from "convex/values";
+import { internal } from "./_generated/api";
+import {
+  requireRoleQuery,
+  requireRoleMutation,
+  SYNDIC_ROLES,
+  NPL_FULL_ACCESS_ROLES,
+} from "./lib/auth";
 import { noSecibIntervenantId } from "./lib/errors";
 
 // ─────────────────────────────────────────────────────────────────
@@ -138,5 +144,148 @@ export const duSyndic = query({
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
     }));
+  },
+});
+
+// Liste GLOBALE pour le cabinet — tous les dossiers, tous syndics, avec
+// le nom de l'org résolu (le cabinet doit savoir de quel syndic vient
+// chaque dossier). Réservé NPL full access ; npl_avocat passe par sa
+// query scopée dossiersOuJeSuisIntervenant. Pas de projection restrictive :
+// le cabinet voit tout. collect() : volumétrie pilote ≤ ~150 docs.
+export const allForCabinet = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireRoleQuery(ctx, NPL_FULL_ACCESS_ROLES);
+    const rows = await ctx.db.query("cases").collect();
+    // Résolution org → nom. Cache local des orgs déjà vues pour éviter
+    // N lectures redondantes quand plusieurs dossiers partagent une org.
+    const orgNames = new Map<string, string>();
+    const result = [];
+    for (const c of rows) {
+      let orgName = orgNames.get(c.organizationId);
+      if (orgName === undefined) {
+        const org = await ctx.db.get(c.organizationId);
+        orgName = org?.name ?? "—";
+        orgNames.set(c.organizationId, orgName);
+      }
+      result.push({
+        _id: c._id,
+        organizationName: orgName,
+        status: c.status,
+        statusChangedAt: c.statusChangedAt,
+        principalCents: c.principalCents,
+        debiteur: c.debiteur,
+        secibDossierId: c.secibDossierId,
+        secibLibelle: c.secibLibelle,
+        secibMatiereLibelle: c.secibMatiereLibelle,
+        pendingSecibPush: c.pendingSecibPush ?? false,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+      });
+    }
+    return result;
+  },
+});
+
+// Détail complet d'un case pour le cabinet (full access — aucune
+// restriction de champ). Renvoie null si l'id n'existe pas.
+export const getByIdForCabinet = query({
+  args: { caseId: v.id("cases") },
+  handler: async (ctx, args) => {
+    await requireRoleQuery(ctx, NPL_FULL_ACCESS_ROLES);
+    const c = await ctx.db.get(args.caseId);
+    if (!c) return null;
+    const org = await ctx.db.get(c.organizationId);
+    return { ...c, organizationName: org?.name ?? "—" };
+  },
+});
+
+// Union des 9 statuts — dupliqué du schéma pour valider l'argument côté
+// mutation (le schéma n'exporte pas son union). Garder synchro avec
+// convex/schema.ts cases.status.
+const statusValidator = v.union(
+  v.literal("CREE"),
+  v.literal("EN_ATTENTE_PIECES"),
+  v.literal("PRET"),
+  v.literal("MISE_EN_DEMEURE_ENVOYEE"),
+  v.literal("INJONCTION_DE_PAYER"),
+  v.literal("ASSIGNATION_AU_FOND"),
+  v.literal("JUGEMENT_OBTENU"),
+  v.literal("CLOTURE"),
+  v.literal("SUSPENDU"),
+);
+
+// Changement de statut par le cabinet. Transition libre (le cabinet sait
+// ce qu'il fait — pas de machine à états contraignante en S5a). Pose
+// previousStatus / statusChangedAt / statusChangedByUserId + trace audit.
+// No-op silencieux si le statut est inchangé (évite une ligne d'audit vide).
+export const setStatus = mutation({
+  args: { caseId: v.id("cases"), status: statusValidator },
+  handler: async (ctx, args): Promise<{ changed: boolean }> => {
+    const user = await requireRoleMutation(ctx, NPL_FULL_ACCESS_ROLES);
+    const caseDoc = await ctx.db.get(args.caseId);
+    if (!caseDoc) {
+      throw new ConvexError({
+        code: "case.not_found",
+        message: `Case ${args.caseId} introuvable.`,
+      });
+    }
+    if (caseDoc.status === args.status) {
+      return { changed: false };
+    }
+    const now = Date.now();
+    await ctx.db.patch(args.caseId, {
+      previousStatus: caseDoc.status,
+      status: args.status,
+      statusChangedAt: now,
+      statusChangedByUserId: user._id,
+      updatedAt: now,
+    });
+    await ctx.runMutation(internal.auditLogs.append, {
+      actorLogtoUserId: user.logtoUserId,
+      actorUserId: user._id,
+      actorRole: user.role,
+      actorOrganizationId: user.organizationId,
+      action: "case.status_changed",
+      targetType: "case",
+      targetId: args.caseId,
+      metadata: { from: caseDoc.status, to: args.status },
+    });
+    return { changed: true };
+  },
+});
+
+// Applique le résultat d'un push SECIB réussi (appelée par secibPush.runPush
+// après création complète Personne+Dossier+Parties). Patch le snapshot SECIB
+// et lève le flag pendingSecibPush. Internal : jamais appelée par le client.
+// Compare-and-set : la mutation (transactionnelle) est la dernière barrière
+// contre un double push concurrent — l'action n'est pas transactionnelle, donc
+// deux runPush parallèles peuvent tous deux franchir la garde côté action.
+export const applyPushResult = internalMutation({
+  args: {
+    caseId: v.id("cases"),
+    secibDossierId: v.string(),
+    secibLibelle: v.string(),
+    secibCodeMatiere: v.string(),
+    secibIntervenantId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.caseId);
+    if (existing?.secibDossierId) {
+      throw new ConvexError({
+        code: "push.already_done",
+        message: `Case ${args.caseId} déjà lié à SECIB (dossier ${existing.secibDossierId}).`,
+      });
+    }
+    const now = Date.now();
+    await ctx.db.patch(args.caseId, {
+      secibDossierId: args.secibDossierId,
+      secibLibelle: args.secibLibelle,
+      secibCodeMatiere: args.secibCodeMatiere,
+      secibIntervenantId: args.secibIntervenantId,
+      secibSnapshotAt: now,
+      pendingSecibPush: false,
+      updatedAt: now,
+    });
   },
 });

@@ -110,3 +110,48 @@ export const notifyNewMessage = internalAction({
     });
   },
 });
+
+// Notifie le(s) syndic(s) d'une org que le cabinet a répondu. Réutilise
+// sendEmail (gracieux : sans RESEND_API_KEY → skip + audit, ne throw jamais).
+// Un email par destinataire syndic ; skip+audit si l'org n'a aucun syndic.
+export const notifySyndicReply = internalAction({
+  args: { caseId: v.id("cases"), messageId: v.id("messages") },
+  handler: async (ctx, args): Promise<void> => {
+    const message = await ctx.runQuery(internal.messages.getByIdInternal, {
+      messageId: args.messageId,
+    });
+    const caseDoc = await ctx.runQuery(internal.cases.getByIdInternal, {
+      caseId: args.caseId,
+    });
+    if (!message || !caseDoc) {
+      await auditEmail(ctx, "skipped", {
+        reason: "message_or_case_missing",
+        messageId: args.messageId,
+        caseId: args.caseId,
+      });
+      return;
+    }
+    const emails = await ctx.runQuery(internal.users.syndicEmailsForOrg, {
+      organizationId: caseDoc.organizationId,
+    });
+    if (emails.length === 0) {
+      await auditEmail(ctx, "skipped", {
+        reason: "no_syndic_recipient",
+        caseId: args.caseId,
+      });
+      return;
+    }
+    const libelle = escapeHtml(caseDoc.secibLibelle ?? "Dossier");
+    const extrait = escapeHtml(message.body.slice(0, 300));
+    const url = `https://immo.nplavocat.com/dossiers/${args.caseId}`;
+    for (const to of emails) {
+      await ctx.runAction(internal.email.sendEmail, {
+        to,
+        subject: `Réponse du cabinet — ${libelle}`,
+        html: `<p>Le cabinet NPL a répondu sur le dossier <strong>${libelle}</strong> :</p>
+<blockquote>${extrait}</blockquote>
+<p><a href="${url}">Ouvrir le dossier</a></p>`,
+      });
+    }
+  },
+});
