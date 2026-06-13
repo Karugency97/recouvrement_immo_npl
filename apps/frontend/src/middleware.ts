@@ -26,15 +26,17 @@ export async function middleware(request: NextRequest) {
   if (logtoPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     // /convex-poc gère son propre état non-authentifié (lien Sign in).
     if (pathname.startsWith("/convex-poc")) return NextResponse.next();
-    // Les requêtes de préfetch <Link> RSC ne doivent PAS déclencher le
-    // getLogtoContext (coûteux) ni la redirection : rediriger un fetch()
-    // de préfetch vers Logto (cross-origin) casse en CORS et tue le
-    // préfetch. Le préfetch ne fait que préchauffer le cache — la vraie
-    // navigation, elle, repasse par ce guard et est bien vérifiée.
-    if (
-      request.headers.get("next-router-prefetch") === "1" ||
-      request.headers.get("purpose") === "prefetch"
-    ) {
+    // Les requêtes RSC (préfetch <Link> ET soft-navigation client) ne
+    // doivent PAS déclencher la redirection vers Logto : un fetch() RSC
+    // redirigé cross-origin vers auth.nplavocat.com casse en CORS (24
+    // erreurs console + préfetch mort). Le payload RSC d'une page client
+    // ne porte aucune donnée serveur (tout vient des queries Convex,
+    // authentifiées séparément), donc le laisser passer ne fuit rien.
+    // La vraie navigation document (sans header RSC) reste gardée.
+    const isRsc =
+      request.headers.get("rsc") === "1" ||
+      request.nextUrl.searchParams.has("_rsc");
+    if (isRsc) {
       return NextResponse.next();
     }
     const { isAuthenticated } = await logtoClient.getLogtoContext(request);
