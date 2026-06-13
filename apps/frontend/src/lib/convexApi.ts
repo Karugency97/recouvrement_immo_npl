@@ -56,3 +56,41 @@ export type DocumentContent = {
 
 // Les réponses gateway sont enveloppées { data: T }.
 export type GatewayResponse<T> = { data?: T };
+
+export const getMyDraftQuery = makeFunctionReference<"query">("caseDrafts:getMyDraft");
+export const saveDraftMutation = makeFunctionReference<"mutation">("caseDrafts:saveDraft");
+export const submitDraftMutation = makeFunctionReference<"mutation">("caseDrafts:submitDraft");
+
+export type CasSpecial =
+  | "INDIVISION"
+  | "DECEDE"
+  | "REDRESSEMENT"
+  | "LOT_LOUE"
+  | "MULTI_LOTS";
+
+export type WizardData = {
+  debiteur: {
+    type: "PP" | "PM";
+    nom: string;
+    adresse: string;
+    email: string;
+    telephone: string;
+    lotDescription: string;
+  };
+  creance: {
+    montant: string; // euros (string d'input) — converti en cents au submit
+    dateExigibilite: string; // yyyy-mm-dd
+    periodeDebut: string;
+    periodeFin: string;
+    nbRelances: string;
+    observations: string;
+  };
+  casSpecial: CasSpecial[];
+};
+
+export type DraftDoc = {
+  _id: string;
+  currentStep: string;
+  wizardData: WizardData;
+  updatedAt: number;
+};
