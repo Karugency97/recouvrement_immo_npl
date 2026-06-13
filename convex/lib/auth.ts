@@ -1,4 +1,4 @@
-import type { ActionCtx, QueryCtx } from "../_generated/server";
+import type { ActionCtx, QueryCtx, MutationCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { notAuthenticated, notProvisioned, forbidden } from "./errors";
@@ -84,6 +84,31 @@ export async function requireRole(
 // ─────────────────────────────────────────────────────────────────
 export async function requireRoleQuery(
   ctx: QueryCtx,
+  allowed: readonly UserRole[],
+) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw notAuthenticated();
+
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_logto_user", (q) => q.eq("logtoUserId", identity.subject))
+    .unique();
+  if (!user) throw notProvisioned(identity.subject);
+
+  if (!allowed.includes(user.role as UserRole)) {
+    throw forbidden(user.role, allowed);
+  }
+
+  return user;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// requireRoleMutation — jumeau de requireRoleQuery pour les MUTATIONS.
+// MutationCtx a aussi ctx.db (en écriture) et ctx.auth ; la lecture
+// users via ctx.db.query est valide. Retourne le doc user complet.
+// ─────────────────────────────────────────────────────────────────
+export async function requireRoleMutation(
+  ctx: MutationCtx,
   allowed: readonly UserRole[],
 ) {
   const identity = await ctx.auth.getUserIdentity();
