@@ -14,8 +14,10 @@ const snapshotValidator = v.object({
   secibDossierId: v.string(),
   secibLibelle: v.string(),
   secibCodeMatiere: v.optional(v.string()),
+  secibMatiereLibelle: v.optional(v.string()),
   secibDateOuverture: v.optional(v.number()),
   secibIntervenantId: v.optional(v.string()),
+  secibResponsableNom: v.optional(v.string()),
 });
 
 // Upsert idempotent par by_secib_dossier. Le patch ne touche QUE le
@@ -48,8 +50,10 @@ export const upsertFromSecib = internalMutation({
         secibDossierId: args.snapshot.secibDossierId,
         secibLibelle: args.snapshot.secibLibelle,
         secibCodeMatiere: args.snapshot.secibCodeMatiere,
+        secibMatiereLibelle: args.snapshot.secibMatiereLibelle,
         secibDateOuverture: args.snapshot.secibDateOuverture,
         secibIntervenantId: args.snapshot.secibIntervenantId,
+        secibResponsableNom: args.snapshot.secibResponsableNom,
         secibSnapshotAt: now,
         updatedAt: now,
       });
