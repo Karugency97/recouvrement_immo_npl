@@ -52,11 +52,10 @@ function DocumentsTab({ caseId }: { caseId: string }) {
 
   const onDownload = async (doc: SecibDocumentEntry) => {
     try {
-      const res = (await download({
+      const content = (await download({
         caseId,
         documentId: doc.DocumentId,
-      })) as GatewayResponse<DocumentContent> & Partial<DocumentContent>;
-      const content = (res.data ?? res) as DocumentContent;
+      })) as DocumentContent;
       const bytes = Uint8Array.from(atob(content.contentBase64), (ch) =>
         ch.charCodeAt(0),
       );

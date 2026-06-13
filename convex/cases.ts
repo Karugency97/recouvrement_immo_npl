@@ -115,9 +115,27 @@ export const duSyndic = query({
   args: {},
   handler: async (ctx) => {
     const user = await requireRoleQuery(ctx, SYNDIC_ROLES);
-    return await ctx.db
+    const rows = await ctx.db
       .query("cases")
       .withIndex("by_org", (q) => q.eq("organizationId", user.organizationId))
       .collect();
+    // Projection explicite : ne JAMAIS renvoyer au syndic les champs
+    // internes/cabinet (authorUserId, statusChangedByUserId, previousStatus,
+    // secibIntervenantId, secibCodeMatiere, pieces, casSpecial). Le payload
+    // réseau = exactement ce que l'UI consomme (cf. CaseDoc côté frontend).
+    return rows.map((c) => ({
+      _id: c._id,
+      status: c.status,
+      statusChangedAt: c.statusChangedAt,
+      principalCents: c.principalCents,
+      secibDossierId: c.secibDossierId,
+      secibLibelle: c.secibLibelle,
+      secibMatiereLibelle: c.secibMatiereLibelle,
+      secibDateOuverture: c.secibDateOuverture,
+      secibSnapshotAt: c.secibSnapshotAt,
+      secibResponsableNom: c.secibResponsableNom,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+    }));
   },
 });

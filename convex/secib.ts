@@ -216,11 +216,31 @@ export const telechargerDocument = action({
       async (audit) => {
         assertRole(audit, [...SYNDIC_ROLES, ...NPL_FULL_ACCESS_ROLES]);
         await assertCaseInOrg(ctx, audit, args.caseId);
-        return await secibFetch(ctx, audit, {
+        const res = await secibFetch<{
+          data?: { fileName?: string; mimeType?: string; contentBase64?: string };
+          fileName?: string;
+          mimeType?: string;
+          contentBase64?: string;
+        }>(ctx, audit, {
           endpoint: `/documents/${args.documentId}/content`,
           targetType: "document_content",
           targetId: args.documentId,
         });
+        // Le gateway enveloppe parfois { data: ... } — on normalise ici pour
+        // que le frontend reçoive un contrat stable { fileName, mimeType,
+        // contentBase64 } sans deviner la forme.
+        const content = res.data ?? res;
+        if (!content.contentBase64) {
+          throw new ConvexError({
+            code: "secib.download_unexpected_shape",
+            message: "Réponse de téléchargement SECIB inattendue (pas de contenu).",
+          });
+        }
+        return {
+          fileName: content.fileName ?? args.documentId,
+          mimeType: content.mimeType ?? "application/octet-stream",
+          contentBase64: content.contentBase64,
+        };
       },
     );
   },

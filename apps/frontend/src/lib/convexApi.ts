@@ -32,12 +32,10 @@ export type CaseDoc = {
   principalCents?: number;
   secibDossierId?: string;
   secibLibelle?: string;
-  secibCodeMatiere?: string;
   secibMatiereLibelle?: string;
   secibDateOuverture?: number;
-  secibIntervenantId?: string;
-  secibResponsableNom?: string;
   secibSnapshotAt?: number;
+  secibResponsableNom?: string;
   createdAt: number;
   updatedAt: number;
 };
