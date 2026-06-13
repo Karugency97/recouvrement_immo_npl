@@ -57,7 +57,8 @@ export default function NouveauDossierPage() {
     if (hydrated || draft === undefined) return;
     if (draft) {
       setData(draft.wizardData);
-      setStep(Number(draft.currentStep) || 0);
+      const restored = Number(draft.currentStep) || 0;
+      setStep(Math.min(Math.max(restored, 0), STEPS.length - 1));
       setResumed(true);
     }
     setHydrated(true);
@@ -89,6 +90,15 @@ export default function NouveauDossierPage() {
     [saveDraft],
   );
 
+  // Nettoie le timer d'auto-save au démontage : sinon un save différé peut
+  // se déclencher après le router.push du submit et ressusciter un
+  // brouillon que submitDraft vient de supprimer.
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, []);
+
   const update = (next: WizardData, nextStep = step) => {
     setData(next);
     if (hydrated) scheduleSave(next, nextStep);
@@ -118,6 +128,13 @@ export default function NouveauDossierPage() {
   };
 
   const onSubmit = async () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    const cents = Math.round(parseFloat(data.creance.montant) * 100);
+    const exig = new Date(data.creance.dateExigibilite).getTime();
+    if (!Number.isFinite(cents) || cents <= 0 || !Number.isFinite(exig)) {
+      toast.error("Montant ou date d'exigibilité invalide.");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = (await submitDraft({
@@ -129,8 +146,8 @@ export default function NouveauDossierPage() {
           telephone: data.debiteur.telephone || undefined,
           lotDescription: data.debiteur.lotDescription || undefined,
         },
-        principalCents: Math.round(parseFloat(data.creance.montant) * 100),
-        principalDateExigibilite: new Date(data.creance.dateExigibilite).getTime(),
+        principalCents: cents,
+        principalDateExigibilite: exig,
         periodeDebut: data.creance.periodeDebut ? new Date(data.creance.periodeDebut).getTime() : undefined,
         periodeFin: data.creance.periodeFin ? new Date(data.creance.periodeFin).getTime() : undefined,
         nbRelances: data.creance.nbRelances ? Number(data.creance.nbRelances) : undefined,

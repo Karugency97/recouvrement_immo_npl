@@ -136,16 +136,50 @@ export const submitDraft = mutation({
     const user = await requireRoleMutation(ctx, SYNDIC_ROLES);
 
     // Validation serveur (le client valide aussi avant submit).
+    // ⚠ v.number() de Convex ACCEPTE NaN/±Infinity — il faut Number.isFinite,
+    // pas juste `<= 0` (NaN <= 0 est false → passerait).
     if (!args.debiteur.nom.trim()) {
       throw new ConvexError({
         code: "wizard.debiteur_nom_required",
         message: "Le nom du débiteur est obligatoire.",
       });
     }
-    if (args.principalCents <= 0) {
+    if (!Number.isFinite(args.principalCents) || args.principalCents <= 0) {
       throw new ConvexError({
         code: "wizard.principal_required",
         message: "Le montant principal doit être supérieur à 0.",
+      });
+    }
+    if (!Number.isFinite(args.principalDateExigibilite)) {
+      throw new ConvexError({
+        code: "wizard.date_exigibilite_invalid",
+        message: "La date d'exigibilité est invalide.",
+      });
+    }
+    // Champs optionnels : on droppe une valeur non finie plutôt que de
+    // corrompre le case (les inputs date/nombre peuvent produire NaN).
+    const periodeDebut = Number.isFinite(args.periodeDebut as number)
+      ? args.periodeDebut
+      : undefined;
+    const periodeFin = Number.isFinite(args.periodeFin as number)
+      ? args.periodeFin
+      : undefined;
+    const nbRelances = Number.isFinite(args.nbRelances as number)
+      ? args.nbRelances
+      : undefined;
+
+    // I1 — idempotence : le brouillon sert de jeton. Si absent, c'est un
+    // double-submit (le premier l'a déjà consommé) → on refuse au lieu de
+    // créer un second case. À ce stade du wizard (étape Validation), l'
+    // auto-save a forcément déjà créé le brouillon.
+    const draft = await ctx.db
+      .query("caseDrafts")
+      .withIndex("by_author", (q) => q.eq("authorUserId", user._id))
+      .unique();
+    if (!draft) {
+      throw new ConvexError({
+        code: "wizard.draft_already_submitted",
+        message: "Brouillon déjà soumis ou introuvable. Rechargez la page.",
       });
     }
 
@@ -167,9 +201,9 @@ export const submitDraft = mutation({
       principalCents: args.principalCents,
       principalDateExigibilite: args.principalDateExigibilite,
       debiteur: args.debiteur,
-      periodeDebut: args.periodeDebut,
-      periodeFin: args.periodeFin,
-      nbRelances: args.nbRelances,
+      periodeDebut,
+      periodeFin,
+      nbRelances,
       observations: args.observations,
       pendingSecibPush: true,
       pieces,
@@ -177,12 +211,8 @@ export const submitDraft = mutation({
       updatedAt: now,
     });
 
-    // Supprimer le brouillon (un par auteur).
-    const draft = await ctx.db
-      .query("caseDrafts")
-      .withIndex("by_author", (q) => q.eq("authorUserId", user._id))
-      .unique();
-    if (draft) await ctx.db.delete(draft._id);
+    // Consomme le brouillon (déjà résolu et asserté plus haut).
+    await ctx.db.delete(draft._id);
 
     // Trace audit (insertion directe — withAuditLog est action-only).
     await ctx.db.insert("auditLogs", {
