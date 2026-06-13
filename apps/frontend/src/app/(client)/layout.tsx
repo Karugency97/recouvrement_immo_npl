@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useQuery } from "convex/react";
 import { meQuery } from "@/lib/convexApi";
 import { ClientLayoutWrapper } from "@/components/layout/ClientLayoutWrapper";
@@ -33,9 +32,12 @@ export default function ClientLayout({
             ? "Votre compte n'est pas encore provisionné. Contactez le cabinet NPL."
             : `Connecté en tant que ${me.name} (${me.role}).`}
         </p>
-        <Link href="/api/logto/sign-out" className="text-sm text-primary underline">
+        {/* Route handler API (302), pas une page — Link la préfetcherait
+            (déconnexion au survol). Cf. même pattern playground S2D. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+        <a href="/api/logto/sign-out" className="text-sm text-primary underline">
           Se déconnecter
-        </Link>
+        </a>
       </div>
     );
   }
