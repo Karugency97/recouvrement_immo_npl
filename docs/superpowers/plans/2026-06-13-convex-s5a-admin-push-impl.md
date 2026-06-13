@@ -945,7 +945,7 @@ EOF
 
 **Files:** aucun.
 
-- [ ] **Step 1: Déployer les fonctions Convex**
+- [x] **Step 1: Déployer les fonctions Convex**
 
 ```bash
 npx convex deploy -y 2>&1 | tail -15
@@ -953,7 +953,7 @@ npx convex deploy -y 2>&1 | tail -15
 
 Expected : déploiement réussi, les nouvelles fonctions (`cases:allForCabinet`, `cases:setStatus`, `messages:sendAsCabinet`, `secibPush:previewPush`, `secibPush:runPush`, `cachedReferentials:readForPush`) listées. Si erreur admin key, voir memory `reference-convex-admin-key-retrieval`.
 
-- [ ] **Step 2: Smoke — les fonctions sont enregistrées (sans identité → forbidden/auth attendu)**
+- [x] **Step 2: Smoke — les fonctions sont enregistrées (sans identité → forbidden/auth attendu)**
 
 ```bash
 npx convex run cases:allForCabinet '{}' 2>&1 | tail -5
@@ -961,7 +961,7 @@ npx convex run cases:allForCabinet '{}' 2>&1 | tail -5
 
 Expected : échoue avec `auth.not_authenticated` (CLI sans identité Logto) — **prouve que la fonction existe et que la garde marche**. Pas un crash de type/déploiement.
 
-- [ ] **Step 3: Smoke — référentiels en cache (le cron S2c a-t-il peuplé ?)**
+- [x] **Step 3: Smoke — référentiels en cache (le cron S2c a-t-il peuplé ?)**
 
 ```bash
 npx convex data cachedReferentials 2>&1 | grep -c "MATIERES_CONTENTIEUX\|INTERVENANTS"
