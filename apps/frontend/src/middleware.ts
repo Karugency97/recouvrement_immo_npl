@@ -32,11 +32,14 @@ export async function middleware(request: NextRequest) {
     // erreurs console + préfetch mort). Le payload RSC d'une page client
     // ne porte aucune donnée serveur (tout vient des queries Convex,
     // authentifiées séparément), donc le laisser passer ne fuit rien.
-    // La vraie navigation document (sans header RSC) reste gardée.
-    const isRsc =
-      request.headers.get("rsc") === "1" ||
-      request.nextUrl.searchParams.has("_rsc");
-    if (isRsc) {
+    // La vraie navigation document (Accept: text/html) reste gardée.
+    //
+    // Détection via Accept: text/x-component — le SEUL signal fiable :
+    // Next 15 strippe le param ?_rsc de request.nextUrl en middleware,
+    // et le header RSC peut être filtré par le reverse-proxy. L'Accept,
+    // lui, traverse Caddy/Traefik intact.
+    const accept = request.headers.get("accept") ?? "";
+    if (accept.includes("text/x-component")) {
       return NextResponse.next();
     }
     const { isAuthenticated } = await logtoClient.getLogtoContext(request);
