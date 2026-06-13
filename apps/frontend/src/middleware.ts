@@ -26,6 +26,17 @@ export async function middleware(request: NextRequest) {
   if (logtoPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     // /convex-poc gère son propre état non-authentifié (lien Sign in).
     if (pathname.startsWith("/convex-poc")) return NextResponse.next();
+    // Les requêtes de préfetch <Link> RSC ne doivent PAS déclencher le
+    // getLogtoContext (coûteux) ni la redirection : rediriger un fetch()
+    // de préfetch vers Logto (cross-origin) casse en CORS et tue le
+    // préfetch. Le préfetch ne fait que préchauffer le cache — la vraie
+    // navigation, elle, repasse par ce guard et est bien vérifiée.
+    if (
+      request.headers.get("next-router-prefetch") === "1" ||
+      request.headers.get("purpose") === "prefetch"
+    ) {
+      return NextResponse.next();
+    }
     const { isAuthenticated } = await logtoClient.getLogtoContext(request);
     if (!isAuthenticated) {
       return NextResponse.redirect(new URL("/api/logto/sign-in", request.url));
