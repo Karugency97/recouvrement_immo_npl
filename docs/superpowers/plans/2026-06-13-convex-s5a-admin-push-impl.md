@@ -2135,7 +2135,7 @@ EOF
 
 **Files:** aucun.
 
-- [ ] **Step 1: Lint frontend**
+- [x] **Step 1: Lint frontend**
 
 ```bash
 rtk lint 2>&1 | tail -15 || pnpm --filter frontend lint 2>&1 | tail -15
@@ -2143,7 +2143,7 @@ rtk lint 2>&1 | tail -15 || pnpm --filter frontend lint 2>&1 | tail -15
 
 Expected : 0 erreur (warnings tolérés). Corriger toute erreur ESLint bloquante (notamment `no-html-link-for-pages` → `eslint-disable` déjà posé sur le `<a>` sign-out du layout).
 
-- [ ] **Step 2: Build frontend en conditions Docker-like (leçon S2B : pas de .env.local, NEXT_PUBLIC_* en env)**
+- [x] **Step 2: Build frontend en conditions Docker-like (leçon S2B : pas de .env.local, NEXT_PUBLIC_* en env)**
 
 ```bash
 pnpm --filter frontend build 2>&1 | tail -20
@@ -2151,7 +2151,7 @@ pnpm --filter frontend build 2>&1 | tail -20
 
 Expected : build réussi.
 
-- [ ] **Step 3: Push la branche**
+- [x] **Step 3: Push la branche**
 
 ```bash
 rtk git push -u origin feat/convex-s5a-admin-push 2>&1 | tail -5
@@ -2218,7 +2218,7 @@ Le dossier SECIB de test créé à l'étape 5 peut être laissé (sandbox) ou si
 
 **Files:** aucun.
 
-- [ ] **Step 1: Ouvrir la PR**
+- [x] **Step 1: Ouvrir la PR** → PR #14
 
 ```bash
 rtk gh pr create --title "S5a — Workspace admin + push SECIB" --body "$(cat <<'EOF'
