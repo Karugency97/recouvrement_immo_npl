@@ -258,6 +258,9 @@ export const setStatus = mutation({
 // Applique le résultat d'un push SECIB réussi (appelée par secibPush.runPush
 // après création complète Personne+Dossier+Parties). Patch le snapshot SECIB
 // et lève le flag pendingSecibPush. Internal : jamais appelée par le client.
+// Compare-and-set : la mutation (transactionnelle) est la dernière barrière
+// contre un double push concurrent — l'action n'est pas transactionnelle, donc
+// deux runPush parallèles peuvent tous deux franchir la garde côté action.
 export const applyPushResult = internalMutation({
   args: {
     caseId: v.id("cases"),
@@ -267,6 +270,13 @@ export const applyPushResult = internalMutation({
     secibIntervenantId: v.string(),
   },
   handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.caseId);
+    if (existing?.secibDossierId) {
+      throw new ConvexError({
+        code: "push.already_done",
+        message: `Case ${args.caseId} déjà lié à SECIB (dossier ${existing.secibDossierId}).`,
+      });
+    }
     const now = Date.now();
     await ctx.db.patch(args.caseId, {
       secibDossierId: args.secibDossierId,

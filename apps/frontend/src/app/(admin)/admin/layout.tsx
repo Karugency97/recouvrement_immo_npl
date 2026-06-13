@@ -4,7 +4,11 @@ import { useQuery } from "convex/react";
 import { meQuery } from "@/lib/convexApi";
 import { AdminLayoutWrapper } from "@/components/layout/AdminLayoutWrapper";
 
-const NPL_ROLES = ["npl_admin", "npl_assistant", "npl_avocat"];
+// S5a : seuls admin/assistant ont des données dans le workspace cabinet
+// (toutes les fonctions backend sont gardées NPL_FULL_ACCESS_ROLES). npl_avocat
+// reviendra quand le scoping intervenant sera branché — sinon il franchirait
+// ce gate puis verrait des erreurs forbidden sur chaque query.
+const NPL_ROLES = ["npl_admin", "npl_assistant"];
 
 // Workspace cabinet — identité via Convex (users.me), plus aucune
 // dépendance Directus. Le middleware garantit une session Logto ; ce
