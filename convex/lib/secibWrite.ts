@@ -27,21 +27,24 @@ export async function createPersonne(
   actor: FetchActor,
   debiteur: DebiteurInput,
 ): Promise<{ personneId: number }> {
-  // Validé sur sandbox (2026-06-13) : le type va dans le BODY
-  // (PersonneApiDto.TypePersonne = "PP"|"PM"). NE PAS envoyer ?type en query
-  // sur le POST : ce param fait répondre SECIB "Le type de personne est
-  // invalide" (le requireType du gateway ne concerne que les GET).
-  // TODO(secib-qualite) : SECIB exige une "Qualité" obligatoire à la création
-  // (BusinessException_QualiteObligatoire dans SaveOrUpdatePersonneApi). Ni
-  // QualiteId (0/1) ni SalutationId ne la satisfont — champ/valeur exacts du
-  // PersonneApiDto à confirmer auprès de l'agent SECIB avant que le push
-  // fonctionne. Voir mémoire [[reference-secib-write-dto-gotchas]].
+  // Validé sur sandbox (2026-06-13, format confirmé par le cabinet) : le type
+  // va dans le BODY (PersonneApiDto.TypePersonne = "PP"|"PM"). NE PAS envoyer
+  // ?type en query sur le POST : ce param fait répondre SECIB "Le type de
+  // personne est invalide" (le requireType du gateway ne vaut que pour les GET).
+  //
+  // QualiteId encode le GENRE d'une PP (pas un rôle) et DOIT être une valeur du
+  // référentiel SECIB, sinon BusinessException_QualiteObligatoire :
+  //   PP → 23 (Masculin) | 22 (Féminin) ; PM/juridiction → 0.
+  // SalutationId : PP → 4 (Monsieur) | 5 (Madame) ; PM → 3 (SCP) | 6 (Syndic).
+  // Le wizard ne capture pas le genre du débiteur → défaut Masculin (23/4) pour
+  // les PP ; le cabinet corrige dans SECIB si besoin. Le rôle débiteur se pose
+  // au niveau de la Partie (TypePartieId 2), pas de la Personne.
   const body = {
     TypePersonne: debiteur.type,
     Nom: debiteur.nom,
     NomCourt: debiteur.nom,
-    SalutationId: debiteur.type === "PM" ? 3 : 0,
-    QualiteId: 0,
+    SalutationId: debiteur.type === "PM" ? 3 : 4,
+    QualiteId: debiteur.type === "PM" ? 0 : 23,
   };
   const res = await secibFetch<{ data?: { PersonneId?: number } }>(ctx, actor, {
     endpoint: "/personnes",

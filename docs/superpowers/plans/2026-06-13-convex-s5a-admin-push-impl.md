@@ -2165,15 +2165,15 @@ Expected : branche poussée.
 
 **Files:** aucun. **Validation manuelle — ne pas court-circuiter le gate sandbox.**
 
-- [ ] **Step 1: Vérifier le déploiement frontend (Coolify)**
+- [x] **Step 1: Vérifier le déploiement frontend (Coolify)** → déploiement `fv0b5y6m7orn1aa177z0wjo3` finished (commit 7fa4809, merge PR #14)
 
 Le push `main`→déploie ; ici on est sur une branche, donc soit merge d'abord (PR), soit déploiement manuel. **Vérifier le statut de déploiement Coolify** (PAS la redirect d'auth — leçon S3b/c) via le MCP coolify (`mcp__coolify__list_deployments` / `get_application`) ou l'UI. Le backend Convex est déjà déployé (Task 9).
 
-- [ ] **Step 2: Auth — accès cabinet**
+- [x] **Step 2: Auth — accès cabinet**
 
 Se connecter en prod (`https://immo.nplavocat.com`) avec un compte `npl_admin` → naviguer `/admin/dossiers` → la liste affiche TOUS les dossiers, colonne Syndic peuplée. Se connecter avec un compte syndic → `/admin/dossiers` → écran « réservé à l'équipe NPL ».
 
-- [ ] **Step 3: Statut**
+- [x] **Step 3: Statut**
 
 Ouvrir un dossier → changer le statut via le select → toast succès → le badge se met à jour (liste + détail). Vérifier l'audit :
 
@@ -2183,11 +2183,11 @@ npx convex run --no-push 2>/dev/null; npx convex data auditLogs 2>&1 | grep -c "
 
 Expected : ≥ 1.
 
-- [ ] **Step 4: Réponse messages**
+- [x] **Step 4: Réponse messages**
 
 Sur un dossier ayant un fil syndic, onglet Messages → répondre → le message apparaît (bulle « Cabinet NPL » à droite). Vérifier côté syndic (autre compte) que la réponse apparaît à gauche. Vérifier `auditLogs` : `email.skipped` (Resend non configuré) ou `email.sent`.
 
-- [ ] **Step 5: ⚠ PUSH SANDBOX D'ABORD — NE PAS pousser un vrai dossier syndic**
+- [x] **Step 5: ⚠ PUSH SANDBOX D'ABORD — NE PAS pousser un vrai dossier syndic**
 
 Créer (via le wizard syndic, compte de test) un dossier jetable avec un **débiteur au nom factice unique** (ex. « TEST PUSH 20260613 »). Puis en `npl_admin` :
 1. Ouvrir ce dossier → onglet SECIB → « Aperçu du push » → vérifier débiteur + syndic PersonneId affichés.
@@ -2200,7 +2200,7 @@ secib --profile sl gw-dossiers-detail <DossierId retourné> -o json | head -40
 
 Expected : le dossier existe, Nom = « TEST PUSH … — recouvrement charges », parties présentes. **Si SECIB rejette** (ex. 500 sur personne/partie, champ DTO inattendu) : corriger `convex/lib/secibWrite.ts` (le shape exact n'avait jamais été exercé depuis Convex), redéployer, re-tester sur un NOUVEAU débiteur jetable. Ne pas passer à l'étape 6 tant que le sandbox n'est pas vert.
 
-- [ ] **Step 6: Idempotence**
+- [x] **Step 6: Idempotence**
 
 Re-pousser le même dossier (rouvrir l'onglet SECIB) → le panneau affiche « Déjà dans SECIB — dossier {id} » et `runPush` refuse (`push.already_done`). Vérifier `auditLogs` : `secib.run_push.succeeded` une seule fois pour ce case.
 
