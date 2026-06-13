@@ -88,7 +88,7 @@ export const previewPush = action({
         let matches: { personneId: number; nom: string }[] = [];
         try {
           const searchRaw = await secibFetch(ctx, audit, {
-            endpoint: "/personnes",
+            endpoint: "/personnes/rechercher",
             targetType: "personne_search",
             targetId: caseDoc.debiteur.nom,
             params: { denomination: caseDoc.debiteur.nom },

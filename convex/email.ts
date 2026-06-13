@@ -111,7 +111,7 @@ export const notifyNewMessage = internalAction({
   },
 });
 
-// Notifie le(s) syndic(s) d'une org qu'le cabinet a répondu. Réutilise
+// Notifie le(s) syndic(s) d'une org que le cabinet a répondu. Réutilise
 // sendEmail (gracieux : sans RESEND_API_KEY → skip + audit, ne throw jamais).
 // Un email par destinataire syndic ; skip+audit si l'org n'a aucun syndic.
 export const notifySyndicReply = internalAction({
