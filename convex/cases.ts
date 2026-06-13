@@ -1,6 +1,6 @@
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireRoleQuery } from "./lib/auth";
+import { requireRoleQuery, SYNDIC_ROLES } from "./lib/auth";
 import { noSecibIntervenantId } from "./lib/errors";
 
 // ─────────────────────────────────────────────────────────────────
@@ -94,6 +94,30 @@ export const dossiersOuJeSuisIntervenant = query({
       .withIndex("by_secib_intervenant", (q) =>
         q.eq("secibIntervenantId", intervenantId),
       )
+      .collect();
+  },
+});
+
+// Getter interne — utilisé par les actions secib.* pour la garde
+// d'appartenance org (assertCaseInOrg) avant tout appel gateway.
+export const getByIdInternal = internalQuery({
+  args: { caseId: v.id("cases") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.caseId);
+  },
+});
+
+// Liste des cases de l'org du syndic appelant — pendant LOCAL de
+// secib.dossiersDuSyndic (qui interroge SECIB en direct). Realtime,
+// zéro appel gateway. collect() : volumétrie pilote ≤ ~150 docs,
+// tri/filtres côté client ; pagination quand le volume l'exigera.
+export const duSyndic = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireRoleQuery(ctx, SYNDIC_ROLES);
+    return await ctx.db
+      .query("cases")
+      .withIndex("by_org", (q) => q.eq("organizationId", user.organizationId))
       .collect();
   },
 });
