@@ -118,3 +118,72 @@ export type InboxEntry = {
   status: CaseStatus;
   lastMessageAt: number;
 };
+
+// ── S5a workspace admin ──────────────────────────────────────────
+export const allForCabinetQuery = makeFunctionReference<"query">("cases:allForCabinet");
+export const getByIdForCabinetQuery = makeFunctionReference<"query">("cases:getByIdForCabinet");
+export const setStatusMutation = makeFunctionReference<"mutation">("cases:setStatus");
+export const sendAsCabinetMutation = makeFunctionReference<"mutation">("messages:sendAsCabinet");
+export const previewPushAction = makeFunctionReference<"action">("secibPush:previewPush");
+export const runPushAction = makeFunctionReference<"action">("secibPush:runPush");
+export const referentialsForPushQuery = makeFunctionReference<"query">("cachedReferentials:readForPush");
+
+export type DebiteurInfo = {
+  type: "PP" | "PM";
+  nom: string;
+  adresse?: string;
+  email?: string;
+  telephone?: string;
+  lotDescription?: string;
+};
+
+// Ligne de la liste cabinet (cases:allForCabinet).
+export type CabinetCaseRow = {
+  _id: string;
+  organizationName: string;
+  status: CaseStatus;
+  statusChangedAt: number;
+  principalCents?: number;
+  debiteur?: DebiteurInfo;
+  secibDossierId?: string;
+  secibLibelle?: string;
+  secibMatiereLibelle?: string;
+  pendingSecibPush: boolean;
+  createdAt: number;
+  updatedAt: number;
+};
+
+// Détail cabinet (cases:getByIdForCabinet) — doc case complet + nom org.
+// Champs principaux consommés par l'UI ; le reste passe en optionnel.
+export type CabinetCaseDoc = {
+  _id: string;
+  organizationName: string;
+  organizationId: string;
+  status: CaseStatus;
+  statusChangedAt: number;
+  previousStatus?: string;
+  principalCents?: number;
+  debiteur?: DebiteurInfo;
+  secibDossierId?: string;
+  secibLibelle?: string;
+  secibMatiereLibelle?: string;
+  secibCodeMatiere?: string;
+  secibIntervenantId?: string;
+  pendingSecibPush?: boolean;
+  pieces?: CaseDoc["pieces"];
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type PreviewPushResult = {
+  debiteur: DebiteurInfo;
+  syndicPersonneId: string;
+  syndicName: string;
+  alreadyPushed: boolean;
+  existingMatches: { personneId: number; nom: string }[];
+};
+
+// Option de select pour matière/responsable. Le payload référentiel SECIB
+// (cachedReferentials) n'a pas de forme garantie → le composant le parse
+// défensivement vers { id, label }.
+export type ReferentialOption = { id: number; label: string };
