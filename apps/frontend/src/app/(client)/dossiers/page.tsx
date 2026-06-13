@@ -1,74 +1,174 @@
-import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+"use client";
+
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { requireAuth, getAuthToken, getUserRole } from "@/lib/dal";
-import { getDossiers } from "@/lib/api/dossiers";
-import { getSyndicByUserId } from "@/lib/api/syndics";
-import { ClientDossiersList } from "@/components/client/ClientDossiersList";
+import { useQuery } from "convex/react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatusBadge } from "@/components/metier/StatusBadge";
+import { STATUS_CONFIG } from "@/components/metier/StatusBadge";
+import {
+  casesDuSyndicQuery,
+  type CaseDoc,
+  type CaseStatus,
+} from "@/lib/convexApi";
 
-/* -------------------------------------------------------------------------- */
-/*  Page component (Server Component — async)                                 */
-/* -------------------------------------------------------------------------- */
+const ALL_STATUSES: CaseStatus[] = [
+  "CREE",
+  "EN_ATTENTE_PIECES",
+  "PRET",
+  "MISE_EN_DEMEURE_ENVOYEE",
+  "INJONCTION_DE_PAYER",
+  "ASSIGNATION_AU_FOND",
+  "JUGEMENT_OBTENU",
+  "CLOTURE",
+  "SUSPENDU",
+];
 
-export default async function DossiersPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string }>;
-}) {
-  const { q } = await searchParams;
-  const user = await requireAuth();
-  const token = (await getAuthToken())!;
-  const role = getUserRole(user);
+type SortKey = "secibLibelle" | "secibDateOuverture" | "updatedAt";
 
-  // Get syndic record if user is syndic
-  const syndic = role === "syndic" ? await getSyndicByUserId(token, user.id) : null;
-  const syndicId = (syndic as Record<string, unknown> | null)?.id as string | undefined;
+// Liste des dossiers — filtres/tri/recherche côté client (volumétrie
+// pilote ≤ ~150 ; pagination serveur quand le volume l'exigera).
+export default function DossiersPage() {
+  const cases = useQuery(casesDuSyndicQuery) as CaseDoc[] | undefined;
+  const [statusFilter, setStatusFilter] = useState<string>("tous");
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("updatedAt");
+  const [sortAsc, setSortAsc] = useState(false);
 
-  // Fetch dossiers (filtered by syndic for client users)
-  const dossiersRaw = await (syndicId
-    ? getDossiers(token, { syndic_id: { _eq: syndicId } })
-    : getDossiers(token)
-  ).catch(() => []);
+  const rows = useMemo(() => {
+    if (!cases) return [];
+    let filtered = cases;
+    if (statusFilter !== "tous") {
+      filtered = filtered.filter((c) => c.status === statusFilter);
+    }
+    if (search.trim()) {
+      const needle = search.trim().toLowerCase();
+      filtered = filtered.filter((c) =>
+        (c.secibLibelle ?? "").toLowerCase().includes(needle),
+      );
+    }
+    return [...filtered].sort((a, b) => {
+      const av = a[sortKey] ?? 0;
+      const bv = b[sortKey] ?? 0;
+      const cmp =
+        typeof av === "string" && typeof bv === "string"
+          ? av.localeCompare(bv, "fr")
+          : Number(av) - Number(bv);
+      return sortAsc ? cmp : -cmp;
+    });
+  }, [cases, statusFilter, search, sortKey, sortAsc]);
 
-  const dossiers = (dossiersRaw as Record<string, unknown>[]).map((d) => {
-    const debiteur = d.debiteur_id as Record<string, unknown> | null;
-    const copro = d.copropriete_id as Record<string, unknown> | null;
-    return {
-      id: d.id as string,
-      reference: (d.reference as string) || "—",
-      statut: (d.statut as string) || "nouveau",
-      montant_initial: Number(d.montant_initial) || 0,
-      montant_recouvre: Number(d.montant_recouvre) || 0,
-      debiteur_nom: debiteur
-        ? `${(debiteur.prenom as string) || ""} ${(debiteur.nom as string) || ""}`.trim()
-        : "—",
-      copropriete_nom: (copro?.nom as string) || "—",
-      lot_description: (d.lot_description as string) || "",
-      date_created: (d.date_created as string) || "",
-    };
-  });
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortAsc((s) => !s);
+    else {
+      setSortKey(key);
+      setSortAsc(key === "secibLibelle");
+    }
+  };
+
+  if (cases === undefined) {
+    return (
+      <div className="space-y-4 p-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-96" />
+      </div>
+    );
+  }
 
   return (
-    <div className="animate-fade-in space-y-6">
-      {/* Page heading + action */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Mes Dossiers
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Suivez l&apos;avancement de vos dossiers de recouvrement
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/dossiers/nouveau">
-            <Plus className="h-4 w-4 mr-2" />
-            Nouveau Dossier
-          </Link>
-        </Button>
+    <div className="space-y-4 p-6">
+      <h1 className="text-2xl font-semibold">Mes dossiers</h1>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Input
+          placeholder="Rechercher un dossier…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-sm"
+        />
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-56">
+            <SelectValue placeholder="Statut" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tous">Tous les statuts</SelectItem>
+            {ALL_STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {STATUS_CONFIG[s].label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-sm text-muted-foreground">
+          {rows.length} dossier{rows.length > 1 ? "s" : ""}
+        </p>
       </div>
 
-      <ClientDossiersList dossiers={dossiers} initialSearch={q || ""} />
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="cursor-pointer" onClick={() => toggleSort("secibLibelle")}>
+              Libellé
+            </TableHead>
+            <TableHead>Statut</TableHead>
+            <TableHead>Matière</TableHead>
+            <TableHead className="cursor-pointer" onClick={() => toggleSort("secibDateOuverture")}>
+              Ouverture
+            </TableHead>
+            <TableHead className="cursor-pointer" onClick={() => toggleSort("updatedAt")}>
+              Dernière maj
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((c) => (
+            <TableRow key={c._id}>
+              <TableCell className="max-w-md">
+                <Link href={`/dossiers/${c._id}`} className="block truncate hover:underline">
+                  {c.secibLibelle ?? "Dossier"}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <StatusBadge status={c.status} />
+              </TableCell>
+              <TableCell className="text-sm text-muted-foreground">
+                {c.secibMatiereLibelle ?? "—"}
+              </TableCell>
+              <TableCell className="text-sm">
+                {c.secibDateOuverture
+                  ? new Date(c.secibDateOuverture).toLocaleDateString("fr-FR")
+                  : "—"}
+              </TableCell>
+              <TableCell className="text-sm">
+                {new Date(c.updatedAt).toLocaleDateString("fr-FR")}
+              </TableCell>
+            </TableRow>
+          ))}
+          {rows.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                Aucun dossier ne correspond.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 }

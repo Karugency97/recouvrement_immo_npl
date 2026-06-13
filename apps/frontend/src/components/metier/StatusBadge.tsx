@@ -3,7 +3,7 @@ import type { CaseStatus } from "@/lib/convexApi";
 
 // Mapping statuts → libellés FR + classes sémantiques du design system
 // (tokens HSL de globals.css). Pill par convention badges.
-const STATUS_CONFIG: Record<CaseStatus, { label: string; className: string }> = {
+export const STATUS_CONFIG: Record<CaseStatus, { label: string; className: string }> = {
   CREE: { label: "Créé", className: "bg-info/15 text-info border-info/30" },
   EN_ATTENTE_PIECES: {
     label: "En attente de pièces",
