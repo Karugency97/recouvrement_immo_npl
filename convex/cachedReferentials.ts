@@ -1,5 +1,6 @@
-import { internalMutation } from "./_generated/server";
+import { internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireRoleQuery, NPL_FULL_ACCESS_ROLES } from "./lib/auth";
 
 // Upsert d'un référentiel SECIB dans le cache. Appelé uniquement par
 // l'action referentials.refreshAll (cron quotidien).
@@ -36,5 +37,29 @@ export const upsertKind = internalMutation({
         ttlAt: now + TTL_MS,
       });
     }
+  },
+});
+
+// Référentiels nécessaires au panneau de push SECIB (S5a) : matières
+// contentieux + intervenants. Réservé au cabinet (full access). Le payload
+// est la réponse gateway telle que cachée ({ data: ... }) — le frontend la
+// parse défensivement (la forme exacte SECIB n'est pas garantie). Renvoie
+// null par kind si le cache est vide (cron jamais passé).
+export const readForPush = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireRoleQuery(ctx, NPL_FULL_ACCESS_ROLES);
+    const matieres = await ctx.db
+      .query("cachedReferentials")
+      .withIndex("by_kind", (q) => q.eq("kind", "MATIERES_CONTENTIEUX"))
+      .unique();
+    const intervenants = await ctx.db
+      .query("cachedReferentials")
+      .withIndex("by_kind", (q) => q.eq("kind", "INTERVENANTS"))
+      .unique();
+    return {
+      matieres: matieres?.payload ?? null,
+      intervenants: intervenants?.payload ?? null,
+    };
   },
 });
