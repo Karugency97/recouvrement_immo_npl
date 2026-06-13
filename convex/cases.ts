@@ -121,8 +121,8 @@ export const duSyndic = query({
       .collect();
     // Projection explicite : ne JAMAIS renvoyer au syndic les champs
     // internes/cabinet (authorUserId, statusChangedByUserId, previousStatus,
-    // secibIntervenantId, secibCodeMatiere, pieces, casSpecial). Le payload
-    // réseau = exactement ce que l'UI consomme (cf. CaseDoc côté frontend).
+    // secibIntervenantId, secibCodeMatiere, casSpecial). pieces EST exposé
+    // (le syndic doit voir les pièces demandées). Cf. CaseDoc frontend.
     return rows.map((c) => ({
       _id: c._id,
       status: c.status,
@@ -134,6 +134,7 @@ export const duSyndic = query({
       secibDateOuverture: c.secibDateOuverture,
       secibSnapshotAt: c.secibSnapshotAt,
       secibResponsableNom: c.secibResponsableNom,
+      pieces: c.pieces,
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
     }));
