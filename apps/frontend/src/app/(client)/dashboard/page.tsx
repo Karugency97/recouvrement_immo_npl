@@ -39,7 +39,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Tableau de bord</h1>
         <Button asChild>
-          <Link href="/dossiers">Voir tous les dossiers ({cases.length})</Link>
+          <Link href="/dossiers" prefetch={false}>Voir tous les dossiers ({cases.length})</Link>
         </Button>
       </div>
 
@@ -68,6 +68,7 @@ export default function DashboardPage() {
             <Link
               key={c._id}
               href={`/dossiers/${c._id}`}
+              prefetch={false}
               className="flex items-center justify-between gap-4 py-3 hover:bg-muted/50"
             >
               <span className="truncate text-sm">{c.secibLibelle ?? "Dossier"}</span>

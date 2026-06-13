@@ -11,7 +11,7 @@ export function ComingSoon({ title }: { title: string }) {
         Cette fonctionnalité arrive prochainement.
       </p>
       <Button asChild variant="outline">
-        <Link href="/dashboard">Retour au tableau de bord</Link>
+        <Link href="/dashboard" prefetch={false}>Retour au tableau de bord</Link>
       </Button>
     </div>
   );
