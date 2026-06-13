@@ -1,6 +1,11 @@
-import { internalMutation, internalQuery, query } from "./_generated/server";
-import { v } from "convex/values";
-import { requireRoleQuery, SYNDIC_ROLES } from "./lib/auth";
+import { internalMutation, internalQuery, query, mutation } from "./_generated/server";
+import { v, ConvexError } from "convex/values";
+import {
+  requireRoleQuery,
+  requireRoleMutation,
+  SYNDIC_ROLES,
+  NPL_FULL_ACCESS_ROLES,
+} from "./lib/auth";
 import { noSecibIntervenantId } from "./lib/errors";
 
 // ─────────────────────────────────────────────────────────────────
@@ -138,5 +143,58 @@ export const duSyndic = query({
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
     }));
+  },
+});
+
+// Liste GLOBALE pour le cabinet — tous les dossiers, tous syndics, avec
+// le nom de l'org résolu (le cabinet doit savoir de quel syndic vient
+// chaque dossier). Réservé NPL full access ; npl_avocat passe par sa
+// query scopée dossiersOuJeSuisIntervenant. Pas de projection restrictive :
+// le cabinet voit tout. collect() : volumétrie pilote ≤ ~150 docs.
+export const allForCabinet = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireRoleQuery(ctx, NPL_FULL_ACCESS_ROLES);
+    const rows = await ctx.db.query("cases").collect();
+    // Résolution org → nom. Cache local des orgs déjà vues pour éviter
+    // N lectures redondantes quand plusieurs dossiers partagent une org.
+    const orgNames = new Map<string, string>();
+    const result = [];
+    for (const c of rows) {
+      let orgName = orgNames.get(c.organizationId);
+      if (orgName === undefined) {
+        const org = await ctx.db.get(c.organizationId);
+        orgName = org?.name ?? "—";
+        orgNames.set(c.organizationId, orgName);
+      }
+      result.push({
+        _id: c._id,
+        organizationName: orgName,
+        status: c.status,
+        statusChangedAt: c.statusChangedAt,
+        principalCents: c.principalCents,
+        debiteur: c.debiteur,
+        secibDossierId: c.secibDossierId,
+        secibLibelle: c.secibLibelle,
+        secibMatiereLibelle: c.secibMatiereLibelle,
+        pendingSecibPush: c.pendingSecibPush ?? false,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+      });
+    }
+    return result;
+  },
+});
+
+// Détail complet d'un case pour le cabinet (full access — aucune
+// restriction de champ). Renvoie null si l'id n'existe pas.
+export const getByIdForCabinet = query({
+  args: { caseId: v.id("cases") },
+  handler: async (ctx, args) => {
+    await requireRoleQuery(ctx, NPL_FULL_ACCESS_ROLES);
+    const c = await ctx.db.get(args.caseId);
+    if (!c) return null;
+    const org = await ctx.db.get(c.organizationId);
+    return { ...c, organizationName: org?.name ?? "—" };
   },
 });
