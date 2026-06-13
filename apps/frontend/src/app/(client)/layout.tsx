@@ -1,33 +1,52 @@
-import { redirect } from "next/navigation";
-import { requireAuth, getUserRole, getAuthToken } from "@/lib/dal";
-import { getSyndicByUserId } from "@/lib/api/syndics";
-import { getUnreadCountForSyndic } from "@/lib/api/messages";
+"use client";
+
+import Link from "next/link";
+import { useQuery } from "convex/react";
+import { meQuery } from "@/lib/convexApi";
 import { ClientLayoutWrapper } from "@/components/layout/ClientLayoutWrapper";
 
-export default async function ClientLayout({
+// Layout du portail syndic — identité via Convex (users.me), plus
+// aucune dépendance Directus. Le middleware garantit une session
+// Logto ; ce layout gère les deux états restants : provisioning
+// manquant et rôle non-syndic.
+export default function ClientLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await requireAuth();
-  const role = getUserRole(user);
+  const me = useQuery(meQuery);
 
-  // Redirect admin/avocat to admin portal
-  if (role === "admin" || role === "avocat") {
-    redirect("/admin/dashboard");
+  if (me === undefined) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">Chargement…</p>
+      </div>
+    );
   }
 
-  const token = (await getAuthToken())!;
-  const syndic = await getSyndicByUserId(token, user.id).catch(() => null);
-  const companyName = (syndic as Record<string, unknown> | null)?.raison_sociale as string || "Syndic";
-  const syndicId = (syndic as Record<string, unknown> | null)?.id as string | undefined;
-
-  const userName = [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email;
-  const unreadCount = syndicId ? await getUnreadCountForSyndic(token, syndicId, user.id) : 0;
+  if (me === null || me.organizationKind !== "syndic") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
+        <h1 className="text-lg font-semibold">Ce portail est réservé aux syndics</h1>
+        <p className="text-sm text-muted-foreground">
+          {me === null
+            ? "Votre compte n'est pas encore provisionné. Contactez le cabinet NPL."
+            : `Connecté en tant que ${me.name} (${me.role}).`}
+        </p>
+        <Link href="/api/logto/sign-out" className="text-sm text-primary underline">
+          Se déconnecter
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
-      <ClientLayoutWrapper userName={userName} userCompany={companyName} unreadCount={unreadCount}>
+      <ClientLayoutWrapper
+        userName={me.name}
+        userCompany={me.organizationName ?? "Syndic"}
+        unreadCount={0}
+      >
         {children}
       </ClientLayoutWrapper>
     </div>
