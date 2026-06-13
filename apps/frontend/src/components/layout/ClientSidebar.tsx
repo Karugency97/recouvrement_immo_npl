@@ -83,7 +83,11 @@ export function ClientSidebar({
           asChild
           className="w-full bg-slate-100 text-slate-900 hover:bg-slate-200 font-medium"
         >
-          <Link href="/dossiers/nouveau" onClick={handleNavClick}>
+          {/* prefetch désactivé : le reverse-proxy strippe les headers RSC,
+              donc les requêtes de préfetch (sans cookie de session) sont
+              redirigées cross-origin vers Logto → erreurs CORS. La nav au
+              clic (créditée, soft-nav) passe le guard normalement. */}
+          <Link href="/dossiers/nouveau" prefetch={false} onClick={handleNavClick}>
             <Plus className="mr-2 h-4 w-4" />
             Nouveau Dossier
           </Link>
@@ -100,6 +104,7 @@ export function ClientSidebar({
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               onClick={handleNavClick}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",

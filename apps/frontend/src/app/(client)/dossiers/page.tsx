@@ -140,7 +140,7 @@ export default function DossiersPage() {
           {rows.map((c) => (
             <TableRow key={c._id}>
               <TableCell className="max-w-md">
-                <Link href={`/dossiers/${c._id}`} className="block truncate hover:underline">
+                <Link href={`/dossiers/${c._id}`} prefetch={false} className="block truncate hover:underline">
                   {c.secibLibelle ?? "Dossier"}
                 </Link>
               </TableCell>
