@@ -26,7 +26,7 @@
 
 **Files:** aucun.
 
-- [ ] **Step 1: Vérifier la branche**
+- [x] **Step 1: Vérifier la branche**
 
 ```bash
 cd /Users/mkstudio/Desktop/recouvrement_immo_npl && git branch --show-current && git status --short
@@ -34,7 +34,7 @@ cd /Users/mkstudio/Desktop/recouvrement_immo_npl && git branch --show-current &&
 
 Expected : `feat/convex-s5a-admin-push` ; fichiers untracked (`convex/_generated/`) tolérés.
 
-- [ ] **Step 2: Vérifier les fondations attendues**
+- [x] **Step 2: Vérifier les fondations attendues**
 
 ```bash
 grep -c "requireRoleMutation\|requireRoleQuery\|NPL_FULL_ACCESS_ROLES\|SYNDIC_ROLES" convex/lib/auth.ts && \
@@ -45,7 +45,7 @@ grep -c "MATIERES_CONTENTIEUX\|INTERVENANTS" convex/schema.ts
 
 Expected : chaque commande ≥ 1.
 
-- [ ] **Step 3: Vérifier que la base Convex tourne (codegen/typecheck local)**
+- [x] **Step 3: Vérifier que la base Convex tourne (codegen/typecheck local)**
 
 ```bash
 npx convex dev --once 2>&1 | tail -5
@@ -62,7 +62,7 @@ Le panneau de push a besoin des matières contentieux + intervenants (rafraîchi
 **Files:**
 - Modify: `convex/cachedReferentials.ts`
 
-- [ ] **Step 1: Ajouter la query `readForPush` à la fin de `convex/cachedReferentials.ts`**
+- [x] **Step 1: Ajouter la query `readForPush` à la fin de `convex/cachedReferentials.ts`**
 
 Ajouter les imports en tête de fichier (remplacer la ligne d'import existante) :
 
@@ -100,7 +100,7 @@ export const readForPush = query({
 });
 ```
 
-- [ ] **Step 2: Codegen + typecheck**
+- [x] **Step 2: Codegen + typecheck**
 
 ```bash
 npx convex dev --once 2>&1 | tail -5
@@ -108,7 +108,7 @@ npx convex dev --once 2>&1 | tail -5
 
 Expected : pas d'erreur (hors `internal.*`/`api.*` si codegen pas encore régénéré — relancer une 2ᵉ fois si besoin).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 rtk git add convex/cachedReferentials.ts && rtk git commit -m "$(cat <<'EOF'
@@ -128,7 +128,7 @@ Le cabinet voit TOUS les dossiers (tous syndics) avec le nom de l'org. `npl_avoc
 **Files:**
 - Modify: `convex/cases.ts`
 
-- [ ] **Step 1: Étendre les imports en tête de `convex/cases.ts`**
+- [x] **Step 1: Étendre les imports en tête de `convex/cases.ts`**
 
 Remplacer le bloc d'import existant par :
 
@@ -144,7 +144,7 @@ import {
 import { noSecibIntervenantId } from "./lib/errors";
 ```
 
-- [ ] **Step 2: Ajouter `allForCabinet` à la fin de `convex/cases.ts`**
+- [x] **Step 2: Ajouter `allForCabinet` à la fin de `convex/cases.ts`**
 
 ```ts
 // Liste GLOBALE pour le cabinet — tous les dossiers, tous syndics, avec
@@ -201,7 +201,7 @@ export const getByIdForCabinet = query({
 });
 ```
 
-- [ ] **Step 3: Codegen + typecheck**
+- [x] **Step 3: Codegen + typecheck**
 
 ```bash
 npx convex dev --once 2>&1 | tail -5
@@ -209,7 +209,7 @@ npx convex dev --once 2>&1 | tail -5
 
 Expected : pas d'erreur de schéma.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 rtk git add convex/cases.ts && rtk git commit -m "$(cat <<'EOF'
@@ -227,7 +227,7 @@ EOF
 **Files:**
 - Modify: `convex/cases.ts`
 
-- [ ] **Step 1: Ajouter le validateur de statut + `setStatus` à la fin de `convex/cases.ts`**
+- [x] **Step 1: Ajouter le validateur de statut + `setStatus` à la fin de `convex/cases.ts`**
 
 ```ts
 // Union des 9 statuts — dupliqué du schéma pour valider l'argument côté
@@ -286,7 +286,7 @@ export const setStatus = mutation({
 });
 ```
 
-- [ ] **Step 2: Ajouter l'import `internal` en tête de `convex/cases.ts`**
+- [x] **Step 2: Ajouter l'import `internal` en tête de `convex/cases.ts`**
 
 Après la ligne `import { v, ConvexError } from "convex/values";`, ajouter :
 
@@ -294,7 +294,7 @@ Après la ligne `import { v, ConvexError } from "convex/values";`, ajouter :
 import { internal } from "./_generated/api";
 ```
 
-- [ ] **Step 3: Codegen + typecheck**
+- [x] **Step 3: Codegen + typecheck**
 
 ```bash
 npx convex dev --once 2>&1 | tail -5
@@ -302,7 +302,7 @@ npx convex dev --once 2>&1 | tail -5
 
 Expected : pas d'erreur.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 rtk git add convex/cases.ts && rtk git commit -m "$(cat <<'EOF'
@@ -322,7 +322,7 @@ EOF
 - Modify: `convex/email.ts`
 - Modify: `convex/users.ts`
 
-- [ ] **Step 1: Ajouter une query interne `users.syndicEmailsForOrg` à la fin de `convex/users.ts`**
+- [x] **Step 1: Ajouter une query interne `users.syndicEmailsForOrg` à la fin de `convex/users.ts`**
 
 ```ts
 // Emails des utilisateurs syndic d'une org — destinataires de la
@@ -347,7 +347,7 @@ export const syndicEmailsForOrg = internalQuery({
 });
 ```
 
-- [ ] **Step 2: Ajouter `sendAsCabinet` à la fin de `convex/messages.ts`**
+- [x] **Step 2: Ajouter `sendAsCabinet` à la fin de `convex/messages.ts`**
 
 D'abord, vérifier que les imports en tête couvrent `NPL_FULL_ACCESS_ROLES` (déjà importé). Puis ajouter :
 
@@ -389,7 +389,7 @@ export const sendAsCabinet = mutation({
 });
 ```
 
-- [ ] **Step 3: Ajouter `notifySyndicReply` à la fin de `convex/email.ts`**
+- [x] **Step 3: Ajouter `notifySyndicReply` à la fin de `convex/email.ts`**
 
 ```ts
 // Notifie le(s) syndic(s) d'une org qu'le cabinet a répondu. Réutilise
@@ -438,7 +438,7 @@ export const notifySyndicReply = internalAction({
 });
 ```
 
-- [ ] **Step 4: Codegen + typecheck**
+- [x] **Step 4: Codegen + typecheck**
 
 ```bash
 npx convex dev --once 2>&1 | tail -5
@@ -446,7 +446,7 @@ npx convex dev --once 2>&1 | tail -5
 
 Expected : pas d'erreur.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 rtk git add convex/messages.ts convex/email.ts convex/users.ts && rtk git commit -m "$(cat <<'EOF'
@@ -466,7 +466,7 @@ Trois helpers POST via `secibFetch`. **Chaque DTO encode un piège connu** (voir
 **Files:**
 - Create: `convex/lib/secibWrite.ts`
 
-- [ ] **Step 1: Écrire `convex/lib/secibWrite.ts`**
+- [x] **Step 1: Écrire `convex/lib/secibWrite.ts`**
 
 ```ts
 import type { ActionCtx } from "../_generated/server";
@@ -582,7 +582,7 @@ export async function createPartie(
 }
 ```
 
-- [ ] **Step 2: Codegen + typecheck**
+- [x] **Step 2: Codegen + typecheck**
 
 ```bash
 npx convex dev --once 2>&1 | tail -5
@@ -590,7 +590,7 @@ npx convex dev --once 2>&1 | tail -5
 
 Expected : pas d'erreur.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 rtk git add convex/lib/secibWrite.ts && rtk git commit -m "$(cat <<'EOF'
@@ -610,7 +610,7 @@ Lecture seule : charge le case, cherche un débiteur existant dans SECIB, renvoi
 **Files:**
 - Create: `convex/secibPush.ts`
 
-- [ ] **Step 1: Écrire `convex/secibPush.ts` (previewPush seulement — runPush ajouté Task 8)**
+- [x] **Step 1: Écrire `convex/secibPush.ts` (previewPush seulement — runPush ajouté Task 8)**
 
 ```ts
 "use node";
@@ -720,7 +720,7 @@ export const previewPush = action({
 });
 ```
 
-- [ ] **Step 2: Codegen + typecheck**
+- [x] **Step 2: Codegen + typecheck**
 
 ```bash
 npx convex dev --once 2>&1 | tail -5
@@ -728,7 +728,7 @@ npx convex dev --once 2>&1 | tail -5
 
 Expected : pas d'erreur.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 rtk git add convex/secibPush.ts && rtk git commit -m "$(cat <<'EOF'
@@ -749,7 +749,7 @@ Crée Personne (ou réutilise) → Dossier → 2 Parties → patche le case. Ide
 - Modify: `convex/cases.ts`
 - Modify: `convex/secibPush.ts`
 
-- [ ] **Step 1: Ajouter l'internal mutation `applyPushResult` à la fin de `convex/cases.ts`**
+- [x] **Step 1: Ajouter l'internal mutation `applyPushResult` à la fin de `convex/cases.ts`**
 
 ```ts
 // Applique le résultat d'un push SECIB réussi (appelée par secibPush.runPush
@@ -778,7 +778,7 @@ export const applyPushResult = internalMutation({
 });
 ```
 
-- [ ] **Step 2: Ajouter les imports d'écriture en tête de `convex/secibPush.ts`**
+- [x] **Step 2: Ajouter les imports d'écriture en tête de `convex/secibPush.ts`**
 
 Après la ligne `import { secibFetch } from "./lib/secibFetch";`, ajouter :
 
@@ -790,7 +790,7 @@ import {
 } from "./lib/secibWrite";
 ```
 
-- [ ] **Step 3: Ajouter `runPush` à la fin de `convex/secibPush.ts`**
+- [x] **Step 3: Ajouter `runPush` à la fin de `convex/secibPush.ts`**
 
 ```ts
 // Push effectif dans SECIB. Séquence fail-loud (SECIB n'a pas de transaction
@@ -920,7 +920,7 @@ export const runPush = action({
 });
 ```
 
-- [ ] **Step 4: Codegen + typecheck**
+- [x] **Step 4: Codegen + typecheck**
 
 ```bash
 npx convex dev --once 2>&1 | tail -5
@@ -928,7 +928,7 @@ npx convex dev --once 2>&1 | tail -5
 
 Expected : pas d'erreur.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 rtk git add convex/cases.ts convex/secibPush.ts && rtk git commit -m "$(cat <<'EOF'
@@ -976,7 +976,7 @@ Expected : `2` si le cron `referentials-refresh` a tourné. Si `0`, déclencher 
 **Files:**
 - Modify: `apps/frontend/src/lib/convexApi.ts`
 
-- [ ] **Step 1: Ajouter les refs + types à la fin de `apps/frontend/src/lib/convexApi.ts`**
+- [x] **Step 1: Ajouter les refs + types à la fin de `apps/frontend/src/lib/convexApi.ts`**
 
 ```ts
 // ── S5a workspace admin ──────────────────────────────────────────
@@ -1049,7 +1049,7 @@ export type PreviewPushResult = {
 export type ReferentialOption = { id: number; label: string };
 ```
 
-- [ ] **Step 2: Build frontend (typecheck)**
+- [x] **Step 2: Build frontend (typecheck)**
 
 ```bash
 pnpm --filter frontend build 2>&1 | tail -15
@@ -1057,7 +1057,7 @@ pnpm --filter frontend build 2>&1 | tail -15
 
 Expected : build réussi (ou échoue plus loin sur les pages pas encore créées — à ce stade, seul `convexApi.ts` change, le build doit passer).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 rtk git add apps/frontend/src/lib/convexApi.ts && rtk git commit -m "$(cat <<'EOF'
@@ -1075,7 +1075,7 @@ EOF
 **Files:**
 - Modify: `apps/frontend/src/middleware.ts`
 
-- [ ] **Step 1: Ajouter `/admin` à `logtoPaths`**
+- [x] **Step 1: Ajouter `/admin` à `logtoPaths`**
 
 Remplacer le tableau `logtoPaths` :
 
@@ -1092,7 +1092,7 @@ const logtoPaths = [
 ];
 ```
 
-- [ ] **Step 2: Retirer la garde Directus `/admin` (devenue morte)**
+- [x] **Step 2: Retirer la garde Directus `/admin` (devenue morte)**
 
 Supprimer ce bloc plus bas dans `middleware()` (la garde de rôle est désormais faite par le layout `(admin)` sur `users.me`) :
 
@@ -1107,7 +1107,7 @@ Supprimer ce bloc plus bas dans `middleware()` (la garde de rôle est désormais
 
 Le `return NextResponse.next();` qui le suivait reste (fin de la fonction `middleware`).
 
-- [ ] **Step 3: Build frontend**
+- [x] **Step 3: Build frontend**
 
 ```bash
 pnpm --filter frontend build 2>&1 | tail -15
@@ -1115,7 +1115,7 @@ pnpm --filter frontend build 2>&1 | tail -15
 
 Expected : build réussi (les pages `/admin` Directus existent encore — neutralisées à la Task 12).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 rtk git add apps/frontend/src/middleware.ts && rtk git commit -m "$(cat <<'EOF'
@@ -1140,7 +1140,7 @@ Le layout `(admin)/admin/layout.tsx` est un Server Component Directus (`requireA
 - Modify: `apps/frontend/src/app/(admin)/admin/messagerie/page.tsx`
 - Modify: `apps/frontend/src/app/(admin)/admin/facturation/page.tsx`
 
-- [ ] **Step 1: Réécrire `apps/frontend/src/app/(admin)/admin/layout.tsx`**
+- [x] **Step 1: Réécrire `apps/frontend/src/app/(admin)/admin/layout.tsx`**
 
 ```tsx
 "use client";
@@ -1200,7 +1200,7 @@ export default function AdminLayout({
 }
 ```
 
-- [ ] **Step 2: Remplacer `dashboard/page.tsx` par un placeholder**
+- [x] **Step 2: Remplacer `dashboard/page.tsx` par un placeholder**
 
 Écrire `apps/frontend/src/app/(admin)/admin/dashboard/page.tsx` :
 
@@ -1214,7 +1214,7 @@ export default function AdminDashboardPage() {
 }
 ```
 
-- [ ] **Step 3: Remplacer `taches/page.tsx`**
+- [x] **Step 3: Remplacer `taches/page.tsx`**
 
 Écrire `apps/frontend/src/app/(admin)/admin/taches/page.tsx` :
 
@@ -1228,7 +1228,7 @@ export default function AdminTachesPage() {
 }
 ```
 
-- [ ] **Step 4: Remplacer `annuaire/page.tsx`**
+- [x] **Step 4: Remplacer `annuaire/page.tsx`**
 
 Écrire `apps/frontend/src/app/(admin)/admin/annuaire/page.tsx` :
 
@@ -1242,7 +1242,7 @@ export default function AdminAnnuairePage() {
 }
 ```
 
-- [ ] **Step 5: Remplacer `messagerie/page.tsx`**
+- [x] **Step 5: Remplacer `messagerie/page.tsx`**
 
 Écrire `apps/frontend/src/app/(admin)/admin/messagerie/page.tsx` :
 
@@ -1258,7 +1258,7 @@ export default function AdminMessageriePage() {
 
 (La réponse aux messages se fait depuis le détail d'un dossier en S5a ; une boîte globale cabinet viendra plus tard.)
 
-- [ ] **Step 6: Remplacer `facturation/page.tsx`**
+- [x] **Step 6: Remplacer `facturation/page.tsx`**
 
 Écrire `apps/frontend/src/app/(admin)/admin/facturation/page.tsx` :
 
@@ -1272,7 +1272,7 @@ export default function AdminFacturationPage() {
 }
 ```
 
-- [ ] **Step 7: Build frontend**
+- [x] **Step 7: Build frontend**
 
 ```bash
 pnpm --filter frontend build 2>&1 | tail -20
@@ -1280,7 +1280,7 @@ pnpm --filter frontend build 2>&1 | tail -20
 
 Expected : build réussi. Si une page Directus orpheline (ex. `admin/dossiers/page.tsx` encore Directus) casse, c'est attendu — corrigé Task 13. Vérifier au moins que `layout.tsx` + les 5 placeholders compilent.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 rtk git add "apps/frontend/src/app/(admin)/admin/layout.tsx" "apps/frontend/src/app/(admin)/admin/dashboard/page.tsx" "apps/frontend/src/app/(admin)/admin/taches/page.tsx" "apps/frontend/src/app/(admin)/admin/annuaire/page.tsx" "apps/frontend/src/app/(admin)/admin/messagerie/page.tsx" "apps/frontend/src/app/(admin)/admin/facturation/page.tsx" && rtk git commit -m "$(cat <<'EOF'
@@ -1298,7 +1298,7 @@ EOF
 **Files:**
 - Modify: `apps/frontend/src/app/(admin)/admin/dossiers/page.tsx`
 
-- [ ] **Step 1: Réécrire `apps/frontend/src/app/(admin)/admin/dossiers/page.tsx`**
+- [x] **Step 1: Réécrire `apps/frontend/src/app/(admin)/admin/dossiers/page.tsx`**
 
 ```tsx
 "use client";
@@ -1435,7 +1435,7 @@ export default function AdminDossiersPage() {
 }
 ```
 
-- [ ] **Step 2: Build frontend**
+- [x] **Step 2: Build frontend**
 
 ```bash
 pnpm --filter frontend build 2>&1 | tail -20
@@ -1443,7 +1443,7 @@ pnpm --filter frontend build 2>&1 | tail -20
 
 Expected : build réussi (le détail `admin/dossiers/[id]/page.tsx` est encore Directus — s'il casse, c'est attendu, corrigé Task 14).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 rtk git add "apps/frontend/src/app/(admin)/admin/dossiers/page.tsx" && rtk git commit -m "$(cat <<'EOF'
@@ -1465,7 +1465,7 @@ Composants : `StatusSelect` (changement de statut) et `AdminMessageThread` (fil 
 - Create: `apps/frontend/src/components/admin/AdminMessageThread.tsx`
 - Modify: `apps/frontend/src/app/(admin)/admin/dossiers/[id]/page.tsx`
 
-- [ ] **Step 1: Écrire `apps/frontend/src/components/admin/StatusSelect.tsx`**
+- [x] **Step 1: Écrire `apps/frontend/src/components/admin/StatusSelect.tsx`**
 
 ```tsx
 "use client";
@@ -1534,7 +1534,7 @@ export function StatusSelect({
 }
 ```
 
-- [ ] **Step 2: Écrire `apps/frontend/src/components/admin/AdminMessageThread.tsx`**
+- [x] **Step 2: Écrire `apps/frontend/src/components/admin/AdminMessageThread.tsx`**
 
 ```tsx
 "use client";
@@ -1634,7 +1634,7 @@ export function AdminMessageThread({ caseId }: { caseId: string }) {
 }
 ```
 
-- [ ] **Step 3: Réécrire `apps/frontend/src/app/(admin)/admin/dossiers/[id]/page.tsx`**
+- [x] **Step 3: Réécrire `apps/frontend/src/app/(admin)/admin/dossiers/[id]/page.tsx`**
 
 ```tsx
 "use client";
@@ -1798,7 +1798,7 @@ export default function AdminDossierDetailPage({
 }
 ```
 
-- [ ] **Step 4: Build (échec attendu sur PushSecibPanel manquant)**
+- [x] **Step 4: Build (échec attendu sur PushSecibPanel manquant)**
 
 ```bash
 pnpm --filter frontend build 2>&1 | grep -i "PushSecibPanel\|error" | head -5
@@ -1806,7 +1806,7 @@ pnpm --filter frontend build 2>&1 | grep -i "PushSecibPanel\|error" | head -5
 
 Expected : erreur « Cannot find module ... PushSecibPanel » — **attendu**, le composant est créé Task 15. (Ne PAS committer un build cassé : on commit après Task 15.)
 
-- [ ] **Step 5: Commit (shell détail + 2 composants, le panel suit)**
+- [x] **Step 5: Commit (shell détail + 2 composants, le panel suit)**
 
 ```bash
 rtk git add "apps/frontend/src/app/(admin)/admin/dossiers/[id]/page.tsx" apps/frontend/src/components/admin/StatusSelect.tsx apps/frontend/src/components/admin/AdminMessageThread.tsx && rtk git commit -m "$(cat <<'EOF'
@@ -1826,7 +1826,7 @@ Aperçu (`previewPush`) → sélection matière/responsable (référentiels) →
 **Files:**
 - Create: `apps/frontend/src/components/admin/PushSecibPanel.tsx`
 
-- [ ] **Step 1: Écrire `apps/frontend/src/components/admin/PushSecibPanel.tsx`**
+- [x] **Step 1: Écrire `apps/frontend/src/components/admin/PushSecibPanel.tsx`**
 
 ```tsx
 "use client";
@@ -2110,7 +2110,7 @@ export function PushSecibPanel({
 }
 ```
 
-- [ ] **Step 2: Build frontend (doit passer maintenant)**
+- [x] **Step 2: Build frontend (doit passer maintenant)**
 
 ```bash
 pnpm --filter frontend build 2>&1 | tail -20
@@ -2118,7 +2118,7 @@ pnpm --filter frontend build 2>&1 | tail -20
 
 Expected : build réussi (toutes les pages `/admin` compilent).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 rtk git add apps/frontend/src/components/admin/PushSecibPanel.tsx && rtk git commit -m "$(cat <<'EOF'
