@@ -27,7 +27,17 @@ export async function createPersonne(
   actor: FetchActor,
   debiteur: DebiteurInput,
 ): Promise<{ personneId: number }> {
+  // Validé sur sandbox (2026-06-13) : le type va dans le BODY
+  // (PersonneApiDto.TypePersonne = "PP"|"PM"). NE PAS envoyer ?type en query
+  // sur le POST : ce param fait répondre SECIB "Le type de personne est
+  // invalide" (le requireType du gateway ne concerne que les GET).
+  // TODO(secib-qualite) : SECIB exige une "Qualité" obligatoire à la création
+  // (BusinessException_QualiteObligatoire dans SaveOrUpdatePersonneApi). Ni
+  // QualiteId (0/1) ni SalutationId ne la satisfont — champ/valeur exacts du
+  // PersonneApiDto à confirmer auprès de l'agent SECIB avant que le push
+  // fonctionne. Voir mémoire [[reference-secib-write-dto-gotchas]].
   const body = {
+    TypePersonne: debiteur.type,
     Nom: debiteur.nom,
     NomCourt: debiteur.nom,
     SalutationId: debiteur.type === "PM" ? 3 : 0,
