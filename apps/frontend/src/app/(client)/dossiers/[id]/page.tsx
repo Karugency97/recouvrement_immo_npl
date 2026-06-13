@@ -1,419 +1,209 @@
-import {
-  ArrowLeft,
-  Building2,
-  User,
-  Calendar,
-  FileText,
-  Eye,
-  MapPin,
-  Mail,
-  Phone,
-  Euro,
-  Scale,
-  Clock,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+"use client";
+
+import { use, useEffect, useState } from "react";
+import { useAction, useQuery } from "convex/react";
+import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { StatusBadge, DocumentTypeBadge } from "@/components/shared/StatusBadge";
-import { Timeline } from "@/components/timeline/Timeline";
-import { MessageSender } from "@/components/messaging/MessageSender";
-import { MarkAsReadTrigger } from "@/components/messaging/MarkAsReadTrigger";
-import Link from "next/link";
-import { redirect } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { formatCurrency } from "@/lib/utils/format-currency";
-import { formatDate } from "@/lib/utils/format-date";
-import { DOCUMENT_TYPE_LABELS, DOCUMENT_CATEGORIES, CREANCE_TYPE_LABELS } from "@/lib/utils/constants";
-import { requireAuth, getAuthToken } from "@/lib/dal";
-import { getDossierById } from "@/lib/api/dossiers";
-import { getCreances } from "@/lib/api/creances";
-import { getDocuments } from "@/lib/api/documents";
-import { getEvenements } from "@/lib/api/evenements";
-import { getMessages } from "@/lib/api/messages";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Download } from "lucide-react";
+import { StatusBadge } from "@/components/metier/StatusBadge";
+import { CaseTimeline } from "@/components/metier/CaseTimeline";
+import {
+  casesDuSyndicQuery,
+  documentsDuDossierAction,
+  telechargerDocumentAction,
+  type CaseDoc,
+  type DocumentContent,
+  type GatewayResponse,
+  type SecibDocumentEntry,
+} from "@/lib/convexApi";
 
-/* -------------------------------------------------------------------------- */
-/*  Info row helper                                                           */
-/* -------------------------------------------------------------------------- */
+function fmtDate(ms?: number) {
+  return ms ? new Date(ms).toLocaleDateString("fr-FR") : "—";
+}
 
-function InfoRow({
-  icon: Icon,
-  label,
-  value,
-  valueClassName,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  valueClassName?: string;
-}) {
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start gap-3 py-2.5">
-      <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-      <div className="min-w-0">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className={cn("text-sm font-medium text-foreground", valueClassName)}>
-          {value}
-        </p>
-      </div>
+    <div className="flex justify-between gap-4 border-b border-border py-2 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-medium">{value}</span>
     </div>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Page component (Server Component — async)                                 */
-/* -------------------------------------------------------------------------- */
+// Tab Documents — fetch à l'ouverture (action scopée auditée côté Convex).
+function DocumentsTab({ caseId }: { caseId: string }) {
+  const fetchDocs = useAction(documentsDuDossierAction);
+  const download = useAction(telechargerDocumentAction);
+  const [docs, setDocs] = useState<SecibDocumentEntry[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-export default async function DossierDetailPage({
+  useEffect(() => {
+    fetchDocs({ caseId })
+      .then((res) => {
+        const payload = res as GatewayResponse<SecibDocumentEntry[]>;
+        setDocs(payload.data ?? []);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    // fetchDocs est stable (useAction) ; caseId est la seule vraie dep.
+  }, [caseId, fetchDocs]);
+
+  const onDownload = async (doc: SecibDocumentEntry) => {
+    try {
+      const content = (await download({
+        caseId,
+        documentId: doc.DocumentId,
+      })) as DocumentContent;
+      const bytes = Uint8Array.from(atob(content.contentBase64), (ch) =>
+        ch.charCodeAt(0),
+      );
+      const blob = new Blob([bytes], { type: content.mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = content.fileName || `${doc.Libelle ?? "document"}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Téléchargement impossible");
+    }
+  };
+
+  if (error) {
+    return <p className="text-sm text-destructive">{error}</p>;
+  }
+  if (docs === null) {
+    return <Skeleton className="h-40" />;
+  }
+  if (docs.length === 0) {
+    return <p className="text-sm text-muted-foreground">Aucun document.</p>;
+  }
+
+  const byRepertoire = new Map<string, SecibDocumentEntry[]>();
+  for (const d of docs) {
+    const key = d.RepertoireLibelle ?? "Autres";
+    byRepertoire.set(key, [...(byRepertoire.get(key) ?? []), d]);
+  }
+
+  return (
+    <div className="space-y-6">
+      {[...byRepertoire.entries()].map(([repertoire, entries]) => (
+        <div key={repertoire}>
+          <h3 className="mb-2 text-sm font-semibold text-muted-foreground">
+            {repertoire}
+          </h3>
+          <div className="divide-y divide-border rounded-lg border border-border">
+            {entries.map((d) => (
+              <div
+                key={d.DocumentId}
+                className="flex items-center justify-between gap-4 px-4 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm">{d.Libelle ?? d.DocumentId}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {d.Extension ?? ""}{" "}
+                    {d.DateCreation
+                      ? new Date(d.DateCreation).toLocaleDateString("fr-FR")
+                      : ""}
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => onDownload(d)}>
+                  <Download className="mr-1 h-4 w-4" /> Télécharger
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function DossierDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
-  const user = await requireAuth();
-  const token = (await getAuthToken())!;
+  const { id } = use(params);
+  const cases = useQuery(casesDuSyndicQuery) as CaseDoc[] | undefined;
 
-  // Fetch dossier with relations
-  let dossierRaw: Record<string, unknown>;
-  try {
-    dossierRaw = await getDossierById(token, id) as Record<string, unknown>;
-  } catch {
-    redirect("/dossiers");
+  if (cases === undefined) {
+    return (
+      <div className="space-y-4 p-6">
+        <Skeleton className="h-8 w-96" />
+        <Skeleton className="h-64" />
+      </div>
+    );
   }
 
-  const dossier = dossierRaw;
-  const debiteur = dossier.debiteur_id as Record<string, unknown> | null;
-  const copro = dossier.copropriete_id as Record<string, unknown> | null;
-  const syndic = dossier.syndic_id as Record<string, unknown> | null;
+  const caseDoc = cases.find((c) => c._id === id);
+  if (!caseDoc) {
+    return (
+      <div className="p-6">
+        <p className="text-sm text-muted-foreground">
+          Dossier introuvable ou n&apos;appartenant pas à votre organisation.
+        </p>
+      </div>
+    );
+  }
 
-  // Fetch related data in parallel
-  const [creancesRaw, documentsRaw, evenementsRaw, messagesRaw] = await Promise.all([
-    getCreances(token, id).catch(() => []),
-    getDocuments(token, id).catch(() => []),
-    getEvenements(token, id).catch(() => []),
-    getMessages(token, id).catch(() => []),
-  ]);
-
-  const creances = creancesRaw as Record<string, unknown>[];
-  const documents = documentsRaw as Record<string, unknown>[];
-  const evenements = evenementsRaw as Record<string, unknown>[];
-  const messages = messagesRaw as Record<string, unknown>[];
-
-  const montantTotal = Number(dossier.montant_initial) || 0;
-  const montantRecouvre = Number(dossier.montant_recouvre) || 0;
-  const pourcentage =
-    montantTotal > 0 ? Math.round((montantRecouvre / montantTotal) * 100) : 0;
-
-  // Map evenements to timeline format
-  const timelineEvents = evenements.map((evt, index) => ({
-    id: evt.id as string,
-    titre: (evt.titre as string) || "—",
-    description: evt.description as string | null,
-    date_evenement: evt.date_evenement as string,
-    type: evt.type as string,
-    state: (index === 0 ? "current" : "completed") as "completed" | "current" | "upcoming",
-  }));
-
-  // Map messages for MessageThread
-  const mappedMessages = messages.map((msg) => {
-    const expediteur = msg.expediteur_id as Record<string, unknown> | null;
-    const pj = msg.piece_jointe as Record<string, unknown> | null;
-    return {
-      id: msg.id as string,
-      contenu: (msg.contenu as string) || "",
-      date_created: msg.date_created as string,
-      expediteur_id: (expediteur?.id as string) || (msg.expediteur_id as string) || "",
-      expediteur_nom: expediteur
-        ? `${expediteur.first_name || ""} ${expediteur.last_name || ""}`.trim()
-        : "—",
-      expediteur_role: ((expediteur?.role as Record<string, unknown>)?.name as string)?.toLowerCase().includes("syndic")
-        ? ("syndic" as const)
-        : ("avocat" as const),
-      piece_jointe: pj ? {
-        id: pj.id as string,
-        filename_download: pj.filename_download as string,
-        type: pj.type as string,
-      } : null,
-    };
-  });
+  const events = [
+    {
+      id: "created",
+      date: caseDoc.createdAt,
+      title: "Dossier créé",
+      description: caseDoc.secibSnapshotAt ? "Importé depuis SECIB" : undefined,
+    },
+  ];
 
   return (
-    <div className="animate-fade-in space-y-6">
-      {/* Back link + header */}
-      <div>
-        <Button variant="ghost" size="sm" asChild className="mb-3 -ml-2">
-          <Link href="/dossiers">
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Retour aux dossiers
-          </Link>
-        </Button>
-
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                {(dossier.reference as string) || "—"}
-              </h1>
-              <StatusBadge status={(dossier.statut as string) || "nouveau"} />
-            </div>
-            <p className="text-muted-foreground mt-1">
-              {debiteur
-                ? `${debiteur.prenom || ""} ${debiteur.nom || ""}`.trim()
-                : "—"}{" "}
-              — {(copro?.nom as string) || "—"}
-            </p>
-          </div>
-          <div className="text-right shrink-0">
-            <p className="text-2xl font-bold text-foreground">
-              {formatCurrency(montantTotal)}
-            </p>
-            <p
-              className={cn(
-                "text-sm",
-                pourcentage === 100 ? "text-emerald-600" : "text-muted-foreground"
-              )}
-            >
-              {pourcentage > 0
-                ? `${formatCurrency(montantRecouvre)} recouvre (${pourcentage}%)`
-                : "Aucun recouvrement"}
-            </p>
-          </div>
-        </div>
+    <div className="space-y-6 p-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-xl font-semibold">{caseDoc.secibLibelle ?? "Dossier"}</h1>
+        <StatusBadge status={caseDoc.status} />
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="apercu">
+      <Tabs defaultValue="infos">
         <TabsList>
-          <TabsTrigger value="apercu">Apercu</TabsTrigger>
-          <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
-          <TabsTrigger value="messages">Messages ({messages.length})</TabsTrigger>
+          <TabsTrigger value="infos">Infos</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="suivi">Suivi</TabsTrigger>
         </TabsList>
 
-        {/* ----- Tab: Apercu ----- */}
-        <TabsContent value="apercu" className="space-y-6 mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Debiteur info */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  Debiteur
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <InfoRow
-                  icon={User}
-                  label="Nom"
-                  value={
-                    debiteur
-                      ? `${debiteur.prenom || ""} ${debiteur.nom || ""}`.trim()
-                      : "—"
-                  }
-                />
-                <InfoRow
-                  icon={Building2}
-                  label="Type"
-                  value={
-                    (debiteur?.type as string) === "personne_morale"
-                      ? "Personne morale"
-                      : "Personne physique"
-                  }
-                />
-                {(debiteur?.adresse as string) ? (
-                  <InfoRow
-                    icon={MapPin}
-                    label="Adresse"
-                    value={`${debiteur!.adresse as string}${debiteur!.code_postal ? `, ${debiteur!.code_postal}` : ""} ${(debiteur!.ville as string) || ""}`}
-                  />
-                ) : null}
-                {(debiteur?.email as string) ? (
-                  <InfoRow icon={Mail} label="Email" value={debiteur!.email as string} />
-                ) : null}
-                {(debiteur?.telephone as string) ? (
-                  <InfoRow icon={Phone} label="Telephone" value={debiteur!.telephone as string} />
-                ) : null}
-              </CardContent>
-            </Card>
-
-            {/* Dossier info */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Scale className="h-4 w-4 text-muted-foreground" />
-                  Informations du dossier
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <InfoRow
-                  icon={Building2}
-                  label="Copropriete"
-                  value={(copro?.nom as string) || "—"}
-                />
-                {(dossier.lot_description as string) ? (
-                  <InfoRow
-                    icon={MapPin}
-                    label="Lot"
-                    value={dossier.lot_description as string}
-                  />
-                ) : null}
-                {(dossier.date_created as string) ? (
-                  <InfoRow
-                    icon={Calendar}
-                    label="Date de creation"
-                    value={formatDate(dossier.date_created as string)}
-                  />
-                ) : null}
-                {(dossier.date_updated as string) ? (
-                  <InfoRow
-                    icon={Clock}
-                    label="Derniere mise a jour"
-                    value={formatDate(dossier.date_updated as string)}
-                  />
-                ) : null}
-                {(syndic?.raison_sociale as string) ? (
-                  <InfoRow
-                    icon={Building2}
-                    label="Syndic"
-                    value={syndic!.raison_sociale as string}
-                  />
-                ) : null}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Creances */}
-          {creances.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Euro className="h-4 w-4 text-muted-foreground" />
-                  Detail des creances
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-0 divide-y divide-border">
-                  {creances.map((creance) => (
-                    <div
-                      key={creance.id as string}
-                      className="flex items-center justify-between py-3"
-                    >
-                      <div>
-                        <p className="text-sm font-medium text-foreground">
-                          {CREANCE_TYPE_LABELS[(creance.type as string)] || (creance.type as string)}
-                        </p>
-                        {(creance.periode as string) ? (
-                          <p className="text-xs text-muted-foreground">
-                            {creance.periode as string}
-                          </p>
-                        ) : null}
-                      </div>
-                      <p className="text-sm font-semibold text-foreground">
-                        {formatCurrency((creance.montant as number) || 0)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-                <Separator className="my-3" />
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-foreground">Total</p>
-                  <p className="text-base font-bold text-foreground">
-                    {formatCurrency(montantTotal)}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Timeline */}
-          {timelineEvents.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  Historique
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Timeline events={timelineEvents} />
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* ----- Tab: Documents ----- */}
-        <TabsContent value="documents" className="mt-4">
+        <TabsContent value="infos">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                Documents ({documents.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {documents.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">
-                  Aucun document
-                </p>
-              ) : (
-                <div className="space-y-0 divide-y divide-border">
-                  {documents.map((doc) => {
-                    const docType = (doc.type as string) || "autre";
-                    return (
-                      <div
-                        key={doc.id as string}
-                        className="flex items-center justify-between py-3 gap-3"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-10 w-10 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
-                            <FileText className="h-5 w-5 text-red-500" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">
-                              {(doc.nom as string) || "Document"}
-                            </p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <DocumentTypeBadge
-                                category={DOCUMENT_CATEGORIES[docType] || "correspondance"}
-                                label={DOCUMENT_TYPE_LABELS[docType] || docType}
-                              />
-                              {(doc.date_created as string) ? (
-                                <span className="text-xs text-muted-foreground">
-                                  {formatDate(doc.date_created as string)}
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-                        {((doc.fichier as string) || (doc.fichier_id as string)) ? (
-                          <Button variant="ghost" size="icon" className="shrink-0" asChild>
-                            <a href={`/api/files/${(doc.fichier as string) || (doc.fichier_id as string)}`} target="_blank" rel="noopener noreferrer">
-                              <Eye className="h-4 w-4" />
-                            </a>
-                          </Button>
-                        ) : (
-                          <Button variant="ghost" size="icon" className="shrink-0" disabled>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+            <CardContent className="pt-6">
+              <InfoRow label="Matière" value={caseDoc.secibMatiereLibelle ?? "—"} />
+              <InfoRow label="Responsable" value={caseDoc.secibResponsableNom ?? "—"} />
+              <InfoRow label="Date d&apos;ouverture" value={fmtDate(caseDoc.secibDateOuverture)} />
+              <InfoRow label="Référence SECIB" value={caseDoc.secibDossierId ?? "—"} />
+              <InfoRow
+                label="Montant principal"
+                value={
+                  caseDoc.principalCents !== undefined
+                    ? `${(caseDoc.principalCents / 100).toLocaleString("fr-FR")} €`
+                    : "À renseigner"
+                }
+              />
+              <InfoRow label="Dernière mise à jour" value={fmtDate(caseDoc.updatedAt)} />
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* ----- Tab: Messages ----- */}
-        <TabsContent value="messages" className="mt-4">
-          <MarkAsReadTrigger dossierId={id} />
-          <MessageSender
-            dossierId={id}
-            messages={mappedMessages}
-            currentUserId={user.id}
-            currentUserName={[user.first_name, user.last_name].filter(Boolean).join(" ") || user.email}
-          />
+        <TabsContent value="documents">
+          {caseDoc.secibDossierId ? (
+            <DocumentsTab caseId={caseDoc._id} />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Pas encore lié à SECIB.
+            </p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="suivi">
+          <CaseTimeline events={events} />
         </TabsContent>
       </Tabs>
     </div>

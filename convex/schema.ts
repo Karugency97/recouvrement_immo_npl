@@ -79,8 +79,10 @@ export default defineSchema({
     secibDossierId: v.optional(v.string()),
     secibLibelle: v.optional(v.string()),
     secibCodeMatiere: v.optional(v.string()),
+    secibMatiereLibelle: v.optional(v.string()),
     secibDateOuverture: v.optional(v.number()),
     secibIntervenantId: v.optional(v.string()),
+    secibResponsableNom: v.optional(v.string()),
     secibSnapshotAt: v.optional(v.number()),
 
     // Pièces inline (5-10 items max par dossier)

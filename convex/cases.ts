@@ -1,6 +1,6 @@
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireRoleQuery } from "./lib/auth";
+import { requireRoleQuery, SYNDIC_ROLES } from "./lib/auth";
 import { noSecibIntervenantId } from "./lib/errors";
 
 // ─────────────────────────────────────────────────────────────────
@@ -14,8 +14,10 @@ const snapshotValidator = v.object({
   secibDossierId: v.string(),
   secibLibelle: v.string(),
   secibCodeMatiere: v.optional(v.string()),
+  secibMatiereLibelle: v.optional(v.string()),
   secibDateOuverture: v.optional(v.number()),
   secibIntervenantId: v.optional(v.string()),
+  secibResponsableNom: v.optional(v.string()),
 });
 
 // Upsert idempotent par by_secib_dossier. Le patch ne touche QUE le
@@ -48,8 +50,10 @@ export const upsertFromSecib = internalMutation({
         secibDossierId: args.snapshot.secibDossierId,
         secibLibelle: args.snapshot.secibLibelle,
         secibCodeMatiere: args.snapshot.secibCodeMatiere,
+        secibMatiereLibelle: args.snapshot.secibMatiereLibelle,
         secibDateOuverture: args.snapshot.secibDateOuverture,
         secibIntervenantId: args.snapshot.secibIntervenantId,
+        secibResponsableNom: args.snapshot.secibResponsableNom,
         secibSnapshotAt: now,
         updatedAt: now,
       });
@@ -91,5 +95,47 @@ export const dossiersOuJeSuisIntervenant = query({
         q.eq("secibIntervenantId", intervenantId),
       )
       .collect();
+  },
+});
+
+// Getter interne — utilisé par les actions secib.* pour la garde
+// d'appartenance org (assertCaseInOrg) avant tout appel gateway.
+export const getByIdInternal = internalQuery({
+  args: { caseId: v.id("cases") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.caseId);
+  },
+});
+
+// Liste des cases de l'org du syndic appelant — pendant LOCAL de
+// secib.dossiersDuSyndic (qui interroge SECIB en direct). Realtime,
+// zéro appel gateway. collect() : volumétrie pilote ≤ ~150 docs,
+// tri/filtres côté client ; pagination quand le volume l'exigera.
+export const duSyndic = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireRoleQuery(ctx, SYNDIC_ROLES);
+    const rows = await ctx.db
+      .query("cases")
+      .withIndex("by_org", (q) => q.eq("organizationId", user.organizationId))
+      .collect();
+    // Projection explicite : ne JAMAIS renvoyer au syndic les champs
+    // internes/cabinet (authorUserId, statusChangedByUserId, previousStatus,
+    // secibIntervenantId, secibCodeMatiere, pieces, casSpecial). Le payload
+    // réseau = exactement ce que l'UI consomme (cf. CaseDoc côté frontend).
+    return rows.map((c) => ({
+      _id: c._id,
+      status: c.status,
+      statusChangedAt: c.statusChangedAt,
+      principalCents: c.principalCents,
+      secibDossierId: c.secibDossierId,
+      secibLibelle: c.secibLibelle,
+      secibMatiereLibelle: c.secibMatiereLibelle,
+      secibDateOuverture: c.secibDateOuverture,
+      secibSnapshotAt: c.secibSnapshotAt,
+      secibResponsableNom: c.secibResponsableNom,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+    }));
   },
 });

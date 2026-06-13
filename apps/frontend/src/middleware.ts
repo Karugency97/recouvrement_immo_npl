@@ -1,22 +1,35 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import LogtoClient from "@logto/next/edge";
+import { logtoConfig } from "@/lib/logto";
 
 const publicPaths = ["/login", "/forgot-password"];
 
-// Convex/Logto-protected routes (S1+). These bypass the Directus auth flow
-// entirely and rely on Logto session + Convex action requireRole() instead.
-// As each portail is rewritten on Convex (S3–S5), add its prefix here and
-// remove the corresponding Directus-protected route below.
-const convexPaths = ["/convex-poc"];
+// Routes sous auth Logto/Convex. (client) est réécrit sur Convex (S3a) ;
+// (admin) reste sous Directus jusqu'à S5.
+const logtoPaths = [
+  "/convex-poc",
+  "/dashboard",
+  "/dossiers",
+  "/documents",
+  "/messagerie",
+  "/parametres",
+];
+
+const logtoClient = new LogtoClient(logtoConfig);
 
 const DIRECTUS_URL = process.env.NEXT_PUBLIC_DIRECTUS_URL!;
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Logto / Convex routes — let the route handler or page-level auth gate
-  // decide. Middleware only knows about Directus cookies, not Logto sessions.
-  if (convexPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+  if (logtoPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    // /convex-poc gère son propre état non-authentifié (lien Sign in).
+    if (pathname.startsWith("/convex-poc")) return NextResponse.next();
+    const { isAuthenticated } = await logtoClient.getLogtoContext(request);
+    if (!isAuthenticated) {
+      return NextResponse.redirect(new URL("/api/logto/sign-in", request.url));
+    }
     return NextResponse.next();
   }
 
@@ -45,19 +58,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Role-based route protection
+  // Role-based route protection (Directus — admin portal only)
   const userRole = request.cookies.get("user_role")?.value;
-  const clientRoutes = ["/dashboard", "/dossiers", "/documents", "/messagerie", "/parametres"];
 
   if (userRole === "syndic" && pathname.startsWith("/admin")) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
-  if (
-    (userRole === "admin" || userRole === "avocat") &&
-    clientRoutes.some((r) => pathname === r || pathname.startsWith(`${r}/`))
-  ) {
-    return NextResponse.redirect(new URL("/admin/dashboard", request.url));
   }
 
   return NextResponse.next();

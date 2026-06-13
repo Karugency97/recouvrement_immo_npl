@@ -39,9 +39,8 @@ export async function GET(
       const callbackUrl = new URL(callbackUri);
       callbackUrl.search = request.nextUrl.search;
       await handleSignIn(logtoConfig, callbackUrl);
-      // "/" is still guarded by the legacy Directus middleware (redirects to
-      // its own /login) — land on the Convex playground instead.
-      redirect("/convex-poc/dossiers");
+      // Le portail syndic (client) est la destination post-login.
+      redirect("/dashboard");
     }
     case "sign-out": {
       await signOut(logtoConfig, logtoConfig.baseUrl);

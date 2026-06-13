@@ -33,8 +33,8 @@ type DetailResponse = {
     Nom: string;
     DateCreation?: string | null;
     IsArchive?: boolean;
-    Matiere?: { MatiereId: number } | null;
-    Responsable?: { UtilisateurId: number } | null;
+    Matiere?: { MatiereId: number; Libelle?: string | null } | null;
+    Responsable?: { UtilisateurId: number; NomComplet?: string | null } | null;
   };
 };
 
@@ -113,12 +113,14 @@ export const runForSyndic = internalAction({
               secibCodeMatiere: d.Matiere
                 ? String(d.Matiere.MatiereId)
                 : undefined,
+              secibMatiereLibelle: d.Matiere?.Libelle ?? undefined,
               secibDateOuverture: Number.isNaN(parsedDate)
                 ? undefined
                 : parsedDate,
               secibIntervenantId: d.Responsable
                 ? String(d.Responsable.UtilisateurId)
                 : undefined,
+              secibResponsableNom: d.Responsable?.NomComplet ?? undefined,
             },
           });
           if (result === "inserted") imported += 1;
