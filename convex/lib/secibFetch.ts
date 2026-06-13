@@ -31,6 +31,12 @@ export type SecibFetchOpts = {
   method?: "GET" | "POST" | "PATCH";
   params?: Record<string, string | number | undefined>;
   body?: unknown;
+  // Ne pas stocker le corps de réponse dans secibFetchLog : pour les
+  // téléchargements de documents, le payload est le fichier entier en
+  // base64 (souvent > 1 Mo → dépasse la limite d'un document Convex et
+  // ferait échouer l'insert du log). On journalise alors juste la taille.
+  // Le contenu réel est toujours retourné à l'appelant.
+  redactResponse?: boolean;
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -75,13 +81,17 @@ export async function secibFetch<T = unknown>(
     responsePayload = { raw: responseText };
   }
 
-  // Auto-populate secibFetchLog regardless of success/failure
+  // Auto-populate secibFetchLog regardless of success/failure.
+  // redactResponse : on ne journalise que la taille (le contenu binaire
+  // ne doit pas finir dans la base d'audit, et dépasserait la limite doc).
   await ctx.runMutation(internal.secibFetchLog.append, {
     endpoint: opts.endpoint,
     targetType: opts.targetType,
     targetId: opts.targetId,
     requestParams: { ...(opts.params ?? {}), method, body: opts.body },
-    responsePayload,
+    responsePayload: opts.redactResponse
+      ? { redacted: true, byteLength: responseText.length }
+      : responsePayload,
     status: res.status,
     fetchedByUserId: audit.userId,
   });

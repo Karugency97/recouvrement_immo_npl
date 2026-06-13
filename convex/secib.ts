@@ -225,6 +225,9 @@ export const telechargerDocument = action({
           endpoint: `/documents/${args.documentId}/content`,
           targetType: "document_content",
           targetId: args.documentId,
+          // Le contenu base64 du fichier ne va pas dans secibFetchLog
+          // (limite doc Convex 1 Mo + hygiène d'audit) — seule la taille.
+          redactResponse: true,
         });
         // Le gateway enveloppe parfois { data: ... } — on normalise ici pour
         // que le frontend reçoive un contrat stable { fileName, mimeType,
