@@ -36,6 +36,12 @@ export type CaseDoc = {
   secibDateOuverture?: number;
   secibSnapshotAt?: number;
   secibResponsableNom?: string;
+  pieces?: {
+    type: string;
+    requirement: "obligatoire" | "recommandee" | "utile";
+    status: "REQUESTED" | "RECEIVED" | "REJECTED";
+    requestedAt: number;
+  }[];
   createdAt: number;
   updatedAt: number;
 };
@@ -56,6 +62,10 @@ export type DocumentContent = {
 
 // Les réponses gateway sont enveloppées { data: T }.
 export type GatewayResponse<T> = { data?: T };
+
+export const messagesByCaseQuery = makeFunctionReference<"query">("messages:byCase");
+export const sendMessageMutation = makeFunctionReference<"mutation">("messages:send");
+export const messagerieInboxQuery = makeFunctionReference<"query">("messages:inbox");
 
 export const getMyDraftQuery = makeFunctionReference<"query">("caseDrafts:getMyDraft");
 export const saveDraftMutation = makeFunctionReference<"mutation">("caseDrafts:saveDraft");
@@ -93,4 +103,18 @@ export type DraftDoc = {
   currentStep: string;
   wizardData: WizardData;
   updatedAt: number;
+};
+
+export type MessageDoc = {
+  _id: string;
+  senderRole: "syndic" | "avocat";
+  body: string;
+  createdAt: number;
+};
+
+export type InboxEntry = {
+  caseId: string;
+  secibLibelle?: string;
+  status: CaseStatus;
+  lastMessageAt: number;
 };

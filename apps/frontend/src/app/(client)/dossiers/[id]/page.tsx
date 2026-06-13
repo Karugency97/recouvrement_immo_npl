@@ -8,8 +8,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/metier/StatusBadge";
 import { CaseTimeline } from "@/components/metier/CaseTimeline";
+import { MessageThread } from "@/components/metier/MessageThread";
 import {
   casesDuSyndicQuery,
   documentsDuDossierAction,
@@ -170,6 +172,7 @@ export default function DossierDetailPage({
           <TabsTrigger value="infos">Infos</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="suivi">Suivi</TabsTrigger>
+          <TabsTrigger value="messages">Messages</TabsTrigger>
         </TabsList>
 
         <TabsContent value="infos">
@@ -188,6 +191,24 @@ export default function DossierDetailPage({
                 }
               />
               <InfoRow label="Dernière mise à jour" value={fmtDate(caseDoc.updatedAt)} />
+              {caseDoc.pieces && caseDoc.pieces.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="mb-2 text-sm font-semibold">{"Pièces demandées"}</h3>
+                  <ul className="space-y-2">
+                    {caseDoc.pieces.map((p) => (
+                      <li
+                        key={p.type}
+                        className="flex items-center justify-between gap-4 rounded-md border border-border px-3 py-2 text-sm"
+                      >
+                        <span>{p.type}</span>
+                        <Badge variant="outline" className="capitalize">
+                          {p.requirement}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -204,6 +225,10 @@ export default function DossierDetailPage({
 
         <TabsContent value="suivi">
           <CaseTimeline events={events} />
+        </TabsContent>
+
+        <TabsContent value="messages">
+          <MessageThread caseId={caseDoc._id} />
         </TabsContent>
       </Tabs>
     </div>
