@@ -105,3 +105,39 @@ export const inbox = query({
     return result;
   },
 });
+
+// Réponse du cabinet sur un dossier. senderRole "avocat" (affiché
+// "Cabinet NPL" côté syndic). Schedule la notif email au syndic (découplé,
+// gracieux). Réservé NPL full access en S5a — l'avocat scopé viendra avec
+// l'extension intervenant de caseAccess (note S5 dans caseAccess.ts).
+export const sendAsCabinet = mutation({
+  args: { caseId: v.id("cases"), body: v.string() },
+  handler: async (ctx, args): Promise<{ messageId: string }> => {
+    const user = await requireRoleMutation(ctx, NPL_FULL_ACCESS_ROLES);
+    const caseDoc = await ctx.db.get(args.caseId);
+    if (!caseDoc) {
+      throw new ConvexError({
+        code: "case.not_found",
+        message: `Case ${args.caseId} introuvable.`,
+      });
+    }
+    if (!args.body.trim()) {
+      throw new ConvexError({
+        code: "message.empty",
+        message: "Le message ne peut pas être vide.",
+      });
+    }
+    const messageId = await ctx.db.insert("messages", {
+      caseId: args.caseId,
+      senderUserId: user._id,
+      senderRole: "avocat" as const,
+      body: args.body.trim(),
+      createdAt: Date.now(),
+    });
+    await ctx.scheduler.runAfter(0, internal.email.notifySyndicReply, {
+      caseId: args.caseId,
+      messageId,
+    });
+    return { messageId };
+  },
+});
